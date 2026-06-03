@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,13 +32,29 @@ export function SubmissionForm({
   isRevisionNeeded,
   latestVersionNumber,
 }: SubmissionFormProps) {
+  const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
   const [state, formAction, isPending] = useActionState(
     updateSubmissionSlotAction,
     {},
   );
+  const submissionUploaded = state.success === "Submission uploaded.";
+
+  useEffect(() => {
+    if (!submissionUploaded) {
+      return;
+    }
+
+    formRef.current?.reset();
+    router.refresh();
+  }, [router, submissionUploaded]);
 
   return (
-    <form action={canEdit ? formAction : undefined} className="grid gap-4">
+    <form
+      ref={formRef}
+      action={canEdit ? formAction : undefined}
+      className="grid gap-4"
+    >
       <input type="hidden" name="classId" value={classId} />
       <input type="hidden" name="slotId" value={slotId} />
 
@@ -87,9 +104,17 @@ export function SubmissionForm({
       </div>
 
       {state.success ? (
-        <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          {state.success}
-        </p>
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <p className="font-medium">
+            {submissionUploaded ? "Submitted for teacher review." : state.success}
+          </p>
+          {submissionUploaded ? (
+            <p className="mt-1 text-xs">
+              The file was accepted as a readable PDF. The page is refreshing to
+              show the latest version status.
+            </p>
+          ) : null}
+        </div>
       ) : null}
       {state.error ? (
         <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">

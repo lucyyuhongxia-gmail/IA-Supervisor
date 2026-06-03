@@ -59,6 +59,14 @@ Automated final grading is intentionally not implemented. AI review remains advi
    npx prisma db seed
    ```
 
+   To reset a local demo database and create a clean Lucy teacher class:
+
+   ```bash
+   npm run demo:reset
+   ```
+
+   This command refuses to run unless `DATABASE_URL` points at `localhost`, `127.0.0.1`, or `::1`. It clears workflow data, removes local uploaded files except `uploads/.gitkeep`, recreates demo users, creates `IB CS IA Demo`, enrolls `student@example.com`, and sets the class invite code to `LUCYIA`.
+
 6. Start the app:
 
    ```bash

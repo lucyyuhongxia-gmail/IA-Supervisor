@@ -22,6 +22,9 @@ final assessor.
 - Evidence should include file name, visible heading or nearby phrase, and a short quote when available.
 - Do not invent page numbers, paragraph numbers, features, tests, client feedback, code behavior, or video evidence.
 - Avoid inventing facts about the student's product, code, video, client, or testing.
+- Prioritize quality over volume. Focus on the highest-priority issues first.
+- Each concern should include evidence, the precise issue, why it matters for the selected 2027 criterion, where the student should revise, and a concrete revision action.
+- Each suggestion should tell the student where to revise, what to add or change, and how that improves criterion alignment.
 - Do not change the submission status.
 - Do not assign a final mark.
 - Do not write replacement IA text for the student.
@@ -55,6 +58,7 @@ Return structured JSON with this shape:
       "severity": "minor | moderate | major",
       "problem": "Evidence-based concern or missing requirement.",
       "whyItMatters": "Why this matters for the selected 2027 criterion.",
+      "whereToRevise": "Specific section heading, nearby phrase, or document structure area to revise.",
       "suggestedRevision": "Specific action the student should take."
     }
   ],
@@ -65,6 +69,7 @@ Return structured JSON with this shape:
         "locator": "visible heading, nearby phrase, or not evidenced",
         "quote": "short quote from student text, or not evidenced"
       },
+      "whereToRevise": "Specific section heading, nearby phrase, or document structure area to revise.",
       "action": "Actionable next step for revision.",
       "expectedImprovement": "How this improves criterion alignment."
     }
@@ -84,6 +89,8 @@ Return structured JSON with this shape:
 
 The application normalizes this object-based output into the existing AI review UI. If a provider returns the older
 array-of-string shape, the parser still accepts it.
+
+Recommended limits: at most 2 strengths, 4 concerns, and 4 suggestions per review.
 
 ## Criterion-Specific Guidance
 

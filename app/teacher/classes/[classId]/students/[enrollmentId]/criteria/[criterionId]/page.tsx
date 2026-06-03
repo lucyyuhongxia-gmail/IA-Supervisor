@@ -298,7 +298,7 @@ export default async function TeacherCriterionReviewPage({
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
+      <div className="grid gap-4">
         <div className="grid content-start gap-4">
           {files.length > 0 ? (
             <Card>
@@ -378,30 +378,11 @@ export default async function TeacherCriterionReviewPage({
             </Card>
           ) : null}
 
-          <SemanticExtractionPanel
+          <AIReviewForm
             classId={enrollment.class.id}
             slotId={slot.id}
-            disabled={!slot.latestVersionId}
-            extraction={
-              semanticExtraction
-                ? {
-                    id: semanticExtraction.id,
-                    status: semanticExtraction.status,
-                    confidence: semanticExtraction.confidence,
-                    sourceCharacterCount:
-                      semanticExtraction.sourceCharacterCount,
-                    message: semanticExtraction.message,
-                    createdAtLabel: semanticExtraction.createdAt.toLocaleString(),
-                    confirmedAtLabel:
-                      semanticExtraction.confirmedAt?.toLocaleString() ?? null,
-                    confirmedByName:
-                      semanticExtraction.confirmedBy?.name ??
-                      semanticExtraction.confirmedBy?.email ??
-                      null,
-                    extractedJson: semanticExtraction.extractedJson,
-                  }
-                : null
-            }
+            disabledReason={aiReviewDisabledReason}
+            aiReviewState={aiReviewState}
           />
 
           <AIReviewHistory
@@ -426,6 +407,24 @@ export default async function TeacherCriterionReviewPage({
               })),
             }))}
           />
+
+          {slot.status === "final_submitted" ? (
+            <ReopenFinalSubmissionForm
+              classId={enrollment.class.id}
+              slotId={slot.id}
+            />
+          ) : (
+            <TeacherFeedbackForm
+              classId={enrollment.class.id}
+              slotId={slot.id}
+              criterionCode={criterion.code}
+              currentStatus={slot.status}
+              feedback={feedback}
+              queueHref="/teacher/dashboard"
+              aiReviewState={aiReviewState}
+              nextReviewHref={nextReviewItem?.href}
+            />
+          )}
 
           <DeltaReviewPanel
             classId={enrollment.class.id}
@@ -452,6 +451,65 @@ export default async function TeacherCriterionReviewPage({
                   }
                 : null
             }
+          />
+
+          <MarkingAssistantPanel
+            classId={enrollment.class.id}
+            slotId={slot.id}
+            disabled={!slot.latestVersionId}
+            maxMarks={criterion.maxMarks}
+            snapshot={
+              latestMarkingSnapshot
+                ? {
+                    id: latestMarkingSnapshot.id,
+                    suggestedMarkMin: latestMarkingSnapshot.suggestedMarkMin,
+                    suggestedMarkMax: latestMarkingSnapshot.suggestedMarkMax,
+                    suggestedSingleMark:
+                      latestMarkingSnapshot.suggestedSingleMark,
+                    confidence: latestMarkingSnapshot.confidence,
+                    rationale: latestMarkingSnapshot.rationale,
+                    createdAtLabel:
+                      latestMarkingSnapshot.createdAt.toLocaleString(),
+                    requestedByName:
+                      latestMarkingSnapshot.requestedBy.name ??
+                      latestMarkingSnapshot.requestedBy.email,
+                    descriptorEvidenceJson:
+                      latestMarkingSnapshot.descriptorEvidenceJson,
+                    teacherFinalMark: latestMarkingSnapshot.teacherFinalMark,
+                    teacherFinalComment:
+                      latestMarkingSnapshot.teacherFinalComment,
+                    finalMarkedAtLabel:
+                      latestMarkingSnapshot.finalMarkedAt?.toLocaleString() ??
+                      null,
+                  }
+                : null
+            }
+          />
+
+          <SemanticExtractionPanel
+            classId={enrollment.class.id}
+            slotId={slot.id}
+            disabled={!slot.latestVersionId}
+            extraction={
+              semanticExtraction
+                ? {
+                    id: semanticExtraction.id,
+                    status: semanticExtraction.status,
+                    confidence: semanticExtraction.confidence,
+                    sourceCharacterCount:
+                      semanticExtraction.sourceCharacterCount,
+                    message: semanticExtraction.message,
+                    createdAtLabel: semanticExtraction.createdAt.toLocaleString(),
+                    confirmedAtLabel:
+                      semanticExtraction.confirmedAt?.toLocaleString() ?? null,
+                    confirmedByName:
+                      semanticExtraction.confirmedBy?.name ??
+                      semanticExtraction.confirmedBy?.email ??
+                      null,
+                    extractedJson: semanticExtraction.extractedJson,
+                  }
+                : null
+              }
           />
 
           {latestVersion?.feedbackSnapshots.length ? (
@@ -596,63 +654,6 @@ export default async function TeacherCriterionReviewPage({
           ) : null}
         </div>
 
-        <div className="grid content-start gap-4">
-          <AIReviewForm
-            classId={enrollment.class.id}
-            slotId={slot.id}
-            disabledReason={aiReviewDisabledReason}
-            aiReviewState={aiReviewState}
-          />
-          {slot.status === "final_submitted" ? (
-            <ReopenFinalSubmissionForm
-              classId={enrollment.class.id}
-              slotId={slot.id}
-            />
-          ) : (
-            <TeacherFeedbackForm
-              classId={enrollment.class.id}
-              slotId={slot.id}
-              criterionCode={criterion.code}
-              currentStatus={slot.status}
-              feedback={feedback}
-              queueHref="/teacher/dashboard"
-              aiReviewState={aiReviewState}
-              nextReviewHref={nextReviewItem?.href}
-            />
-          )}
-          <MarkingAssistantPanel
-            classId={enrollment.class.id}
-            slotId={slot.id}
-            disabled={!slot.latestVersionId}
-            maxMarks={criterion.maxMarks}
-            snapshot={
-              latestMarkingSnapshot
-                ? {
-                    id: latestMarkingSnapshot.id,
-                    suggestedMarkMin: latestMarkingSnapshot.suggestedMarkMin,
-                    suggestedMarkMax: latestMarkingSnapshot.suggestedMarkMax,
-                    suggestedSingleMark:
-                      latestMarkingSnapshot.suggestedSingleMark,
-                    confidence: latestMarkingSnapshot.confidence,
-                    rationale: latestMarkingSnapshot.rationale,
-                    createdAtLabel:
-                      latestMarkingSnapshot.createdAt.toLocaleString(),
-                    requestedByName:
-                      latestMarkingSnapshot.requestedBy.name ??
-                      latestMarkingSnapshot.requestedBy.email,
-                    descriptorEvidenceJson:
-                      latestMarkingSnapshot.descriptorEvidenceJson,
-                    teacherFinalMark: latestMarkingSnapshot.teacherFinalMark,
-                    teacherFinalComment:
-                      latestMarkingSnapshot.teacherFinalComment,
-                    finalMarkedAtLabel:
-                      latestMarkingSnapshot.finalMarkedAt?.toLocaleString() ??
-                      null,
-                  }
-                : null
-            }
-          />
-        </div>
       </div>
     </main>
   );

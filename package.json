@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "ai-review:evaluate": "node scripts/evaluate-ai-review.mjs",
+    "demo:reset": "node scripts/demo-reset.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"

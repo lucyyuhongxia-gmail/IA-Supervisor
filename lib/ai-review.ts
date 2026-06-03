@@ -511,6 +511,9 @@ function buildExaminerSystemPrompt() {
     "Do not invent page numbers, paragraph numbers, features, tests, clients, code behavior, or video evidence. Use approximate locators only from visible headings, file names, or quoted text.",
     "Feedback should sound like an experienced IB CS teacher: specific, criterion-aligned, actionable, and concise.",
     "Avoid generic comments such as 'add more detail' unless you specify exactly what evidence or revision is needed.",
+    "Each concern must follow this reasoning pattern: evidence, precise issue, why it matters for the selected 2027 criterion, and a concrete revision action tied to a document location.",
+    "Each suggestion must tell the student where to revise, what to add/change, and how that improves the selected criterion.",
+    "Prioritize quality over volume: focus on the most important issues a teacher should act on first.",
     "Do not write the IA section for the student. Give revision guidance, not replacement prose.",
   ].join(" ");
 }
@@ -521,7 +524,7 @@ function buildExaminerResponseInstructions(criterionCode: string) {
     JSON.stringify(
       {
         summary:
-          "2-4 sentence examiner-style summary for the selected criterion only.",
+          "2-4 sentence examiner-style summary for the selected criterion only. Mention the strongest evidence and the highest-priority gap.",
         strengths: [
           {
             evidence: {
@@ -544,6 +547,8 @@ function buildExaminerResponseInstructions(criterionCode: string) {
             severity: "minor | moderate | major",
             problem: "what is wrong or missing",
             whyItMatters: `why this matters for Criterion ${criterionCode} under the 2027 syllabus`,
+            whereToRevise:
+              "specific section heading, nearby phrase, or document structure area to revise",
             suggestedRevision: "specific action the student should take",
           },
         ],
@@ -554,6 +559,8 @@ function buildExaminerResponseInstructions(criterionCode: string) {
               locator: "visible heading, nearby phrase, or not evidenced",
               quote: "short quote from student text, or not evidenced",
             },
+            whereToRevise:
+              "specific section heading, nearby phrase, or document structure area to revise",
             action: "specific revision action",
             expectedImprovement: `how it improves Criterion ${criterionCode} alignment`,
           },
@@ -576,10 +583,13 @@ function buildExaminerResponseInstructions(criterionCode: string) {
       2,
     ),
     "Evidence rules:",
+    "- Return at most 2 strengths, 4 concerns, and 4 suggestions.",
     "- Quote no more than 35 words per evidence quote.",
     "- Use exact student wording where possible.",
     "- If you cannot locate evidence, use quote: \"not evidenced\" and explain the missing requirement.",
     "- Use visible document headings or nearby phrases as locator. Do not invent page numbers.",
+    "- If the document has no visible heading, use a nearby phrase from the extracted text as the locator.",
+    "- Do not repeat the same issue in both concerns and suggestions unless the suggestion adds a different action.",
     "- Review only the selected criterion.",
     "Bad feedback: \"Add more detail.\"",
     "Good feedback: \"Evidence: 'The librarian can search by title'. Issue: The success criterion is functional but not measurable. Why it matters: Criterion A requires success criteria that can later be evaluated. Revision guidance: Rewrite it as a testable outcome, such as search accuracy, acceptable response time, and expected results for valid/invalid searches.\"",
@@ -771,7 +781,7 @@ function normalizeFindingArray(
   return value
     .map((item) => normalizeFindingItem(item, type))
     .filter(Boolean)
-    .slice(0, 8);
+    .slice(0, getFindingLimit(type));
 }
 
 function normalizeFindingItem(
@@ -805,6 +815,7 @@ function normalizeFindingItem(
     const severity = stringField(item.severity);
     const problem = stringField(item.problem) || stringField(item.issue);
     const whyItMatters = stringField(item.whyItMatters);
+    const whereToRevise = stringField(item.whereToRevise);
     const suggestedRevision =
       stringField(item.suggestedRevision) || stringField(item.revisionGuidance);
 
@@ -815,10 +826,12 @@ function normalizeFindingItem(
         : "",
       problem ? `Issue: ${problem}` : "",
       whyItMatters ? `Why it matters: ${whyItMatters}` : "",
+      whereToRevise ? `Where to revise: ${whereToRevise}` : "",
       suggestedRevision ? `Revision guidance: ${suggestedRevision}` : "",
     ]);
   }
 
+  const whereToRevise = stringField(item.whereToRevise);
   const action =
     stringField(item.action) ||
     stringField(item.suggestion) ||
@@ -828,9 +841,20 @@ function normalizeFindingItem(
 
   return joinFindingSections([
     formatEvidence(evidence),
+    whereToRevise ? `Where to revise: ${whereToRevise}` : "",
     action ? `Revision action: ${action}` : "",
     expectedImprovement ? `Expected improvement: ${expectedImprovement}` : "",
   ]);
+}
+
+function getFindingLimit(type: "strength" | "concern" | "suggestion") {
+  switch (type) {
+    case "strength":
+      return 2;
+    case "concern":
+    case "suggestion":
+      return 4;
+  }
 }
 
 function normalizeEvidence(value: unknown) {
