@@ -424,7 +424,7 @@ function getStudentCompletionBlockers({
   }
 
   if (!hasFile) {
-    blockers.push(`Criterion ${criterionCode}: upload a PDF or DOCX file.`);
+    blockers.push(`Criterion ${criterionCode}: upload a PDF file.`);
   }
 
   if (status === "revision_needed") {

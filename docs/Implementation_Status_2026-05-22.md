@@ -69,8 +69,10 @@ and backlog supplement.
   - final-submitted count
   - per-criterion status, file presence, and pass state
   - student-facing reasons why final submission is not yet available
-- Students upload PDF/DOCX files per criterion.
+- Students upload PDF files per criterion.
 - Upload limit is 25 MB.
+- PDF uploads must contain readable text. Scanned, image-only, encrypted, or otherwise unreadable PDFs are rejected
+  before a submission version is created.
 - Each student submission creates an immutable `SubmissionVersion`.
 - Submitted file records are stored as `FileAsset`.
 - Semantic extraction is generated after student file submission when readable text is available.
@@ -144,7 +146,8 @@ and backlog supplement.
 - AI review can run against a single criterion submission.
 - DeepSeek and OpenAI-compatible providers are supported through environment configuration.
 - Mock mode is supported for local workflow testing.
-- AI review extracts text from PDF/DOCX submissions before calling the provider.
+- AI review extracts text from PDF submissions before calling the provider.
+- AI review run guardrails block calls unless the latest criterion version has a readable PDF and a reviewable status.
 - AI review refreshes semantic extraction for the latest submitted version before running.
 - AI review saves:
   - provider
@@ -194,6 +197,21 @@ and backlog supplement.
 - The report shows status, severity, summary, shared terms, source snippets, and target snippets.
 - Consistency review is currently rule-based over semantic extraction snippets, not LLM-generated.
 - Consistency review completion is recorded in audit history.
+
+### Delta Review
+
+- `DeltaReview` records are stored per criterion submission slot.
+- Teacher criterion review page can compare the latest submitted version with the previous submitted version.
+- Delta review uses previous teacher feedback as the issue list and checks the latest extracted text for possible
+  response evidence.
+- Delta review shows:
+  - previous issues that are possibly addressed
+  - previous issues that still need teacher review
+  - new or substantially changed evidence from the latest version
+- Delta review is teacher-facing only and does not change status, send feedback, assign marks, or replace teacher
+  judgement.
+- Current implementation is conservative and rule-based. It is not yet an LLM examiner-mode delta review.
+- Delta review completion is recorded in audit history.
 
 ### Marking Assistant
 
@@ -259,6 +277,7 @@ and backlog supplement.
 
 - Uploaded files are stored locally under `/uploads`.
 - Files are served through authenticated `/api/files/[fileId]`.
+- PDF files can be previewed inline from teacher criterion review pages through the same authenticated file route.
 - Students can access their own files.
 - Teachers can access files for classes they own.
 
@@ -272,13 +291,13 @@ before submission.
 Current implementation has the `SemanticExtraction` table, automatic generation, teacher confirmation, and teacher
 review UI. It does not yet include student-facing extraction editing/confirmation or a teacher metadata editor.
 
-### Delta Review
+### LLM Delta Review Upgrade
 
-The v1 design includes review of differences between two versions of the same criterion, especially whether a student
-addressed previous feedback.
+The v1 design includes AI review of differences between two versions of the same criterion, especially whether a
+student addressed previous feedback.
 
-Current implementation stores version history, but does not run AI delta review or produce resolved/remaining/new issue
-reports.
+Current implementation stores version history and rule-based `DeltaReview` records with resolved/remaining/new evidence
+sections. It does not yet run LLM examiner-mode delta review.
 
 ### Student-Facing Marks
 
@@ -345,12 +364,6 @@ The teacher UI spec includes filters by criterion, late status, student, and mil
 Current implementation has status-focused review queues and compact class/student pages. Student scale is currently
 small, so broader search/filter work has been intentionally deprioritized.
 
-### Inline PDF Preview
-
-The teacher workflow spec describes a submission viewer with document preview.
-
-Current implementation provides authenticated file links and extracted text preview, but no embedded PDF renderer.
-
 ## Intentional Or Deferred Scope
 
 - No online IA document editor.
@@ -383,11 +396,14 @@ Current implementation provides authenticated file links and extracted text prev
 2. **LLM Consistency Review Upgrade**
    Upgrade the current rule-based consistency checks to LLM-assisted checks using confirmed semantic extraction.
 
-3. **Formal Feedback Approval Step**
+3. **LLM Delta Review Upgrade**
+   Upgrade the current rule-based delta review to LLM-assisted comparison against previous teacher feedback.
+
+4. **Formal Feedback Approval Step**
    Add an explicit approve action before sent feedback if the workflow needs stricter review control.
 
-4. **Student Semantic Extraction Confirmation**
+5. **Student Semantic Extraction Confirmation**
    Add student-facing extraction confirmation/editing before submission if this becomes important for data quality.
 
-5. **Formal PDF Package Export**
+6. **Formal PDF Package Export**
    Add a rendered PDF report and optional persistent `FinalPackage` model after ZIP export is stable.

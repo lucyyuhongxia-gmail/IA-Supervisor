@@ -81,6 +81,7 @@ model User {
   consistencyChecks            ConsistencyCheck[]   @relation("ConsistencyCheckRequestedBy")
   feedbackSnapshots            FeedbackSnapshot[]   @relation("FeedbackSnapshotCreatedBy")
   markingSnapshots             MarkingSnapshot[]    @relation("MarkingSnapshotRequestedBy")
+  deltaReviews                 DeltaReview[]        @relation("DeltaReviewRequestedBy")
 
   @@map("users")
 }
@@ -155,6 +156,7 @@ model CriterionDef {
   sourceConsistencyChecks ConsistencyCheck[]   @relation("ConsistencyCheckSourceCriterion")
   targetConsistencyChecks ConsistencyCheck[]   @relation("ConsistencyCheckTargetCriterion")
   markingSnapshots        MarkingSnapshot[]
+  deltaReviews            DeltaReview[]
 
   @@unique([subjectId, code])
   @@index([subjectId])
@@ -223,6 +225,7 @@ model SubmissionSlot {
   semanticExtractions SemanticExtraction[]
   feedbackSnapshots   FeedbackSnapshot[]
   markingSnapshots    MarkingSnapshot[]
+  deltaReviews        DeltaReview[]
 
   @@unique([enrollmentId, criterionId])
   @@index([criterionId])
@@ -240,13 +243,15 @@ model SubmissionVersion {
   submittedAt      DateTime  @default(now()) @map("submitted_at")
   createdAt        DateTime  @default(now()) @map("created_at")
 
-  submissionSlot      SubmissionSlot       @relation("SlotSubmissionVersions", fields: [submissionSlotId], references: [id], onDelete: Cascade)
-  latestForSlot       SubmissionSlot?      @relation("LatestSubmissionVersion")
-  fileAssets          FileAsset[]
-  aiReviewRuns        AIReviewRun[]
-  semanticExtractions SemanticExtraction[]
-  feedbackSnapshots   FeedbackSnapshot[]
-  markingSnapshots    MarkingSnapshot[]
+  submissionSlot       SubmissionSlot       @relation("SlotSubmissionVersions", fields: [submissionSlotId], references: [id], onDelete: Cascade)
+  latestForSlot        SubmissionSlot?      @relation("LatestSubmissionVersion")
+  fileAssets           FileAsset[]
+  aiReviewRuns         AIReviewRun[]
+  semanticExtractions  SemanticExtraction[]
+  feedbackSnapshots    FeedbackSnapshot[]
+  markingSnapshots     MarkingSnapshot[]
+  previousDeltaReviews DeltaReview[]        @relation("PreviousDeltaReviewVersion")
+  currentDeltaReviews  DeltaReview[]        @relation("CurrentDeltaReviewVersion")
 
   @@unique([submissionSlotId, versionNumber])
   @@index([submissionSlotId])
@@ -453,6 +458,35 @@ model MarkingSnapshot {
   @@index([requestedById])
   @@index([sourceAIReviewRunId])
   @@map("marking_snapshots")
+}
+
+model DeltaReview {
+  id                String   @id @default(cuid())
+  submissionSlotId  String   @map("submission_slot_id")
+  previousVersionId String   @map("previous_version_id")
+  currentVersionId  String   @map("current_version_id")
+  criterionId       String   @map("criterion_id")
+  requestedById     String   @map("requested_by_id")
+  summary           String   @db.Text
+  confidence        String
+  resolvedJson      Json     @map("resolved_json")
+  remainingJson     Json     @map("remaining_json")
+  newEvidenceJson   Json     @map("new_evidence_json")
+  sourceJson        Json     @map("source_json")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  submissionSlot  SubmissionSlot    @relation(fields: [submissionSlotId], references: [id], onDelete: Cascade)
+  previousVersion SubmissionVersion @relation("PreviousDeltaReviewVersion", fields: [previousVersionId], references: [id], onDelete: Cascade)
+  currentVersion  SubmissionVersion @relation("CurrentDeltaReviewVersion", fields: [currentVersionId], references: [id], onDelete: Cascade)
+  criterion       CriterionDef      @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  requestedBy     User              @relation("DeltaReviewRequestedBy", fields: [requestedById], references: [id], onDelete: Cascade)
+
+  @@index([submissionSlotId])
+  @@index([previousVersionId])
+  @@index([currentVersionId])
+  @@index([criterionId])
+  @@index([requestedById])
+  @@map("delta_reviews")
 }
 
 model AuditLog {

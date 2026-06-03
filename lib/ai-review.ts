@@ -644,8 +644,8 @@ function createMockReview({
     ],
     concerns: extractionLimited
       ? [
-          "The current AI review cannot inspect the full file content for this file type yet.",
-          "Teacher review should remain the source of judgement until PDF/DOCX extraction is added.",
+          "The current AI review cannot inspect the full file content because no readable PDF text was extracted.",
+          "Teacher review should remain the source of judgement until the student submits a text-based PDF.",
         ]
       : [
           "This is a mock review because the configured provider is not active.",

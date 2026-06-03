@@ -9,7 +9,7 @@ import { runAIReviewAction, type AIReviewState } from "../../../../actions";
 type AIReviewFormProps = {
   classId: string;
   slotId: string;
-  disabled: boolean;
+  disabledReason: string | null;
   aiReviewState: "missing" | "current" | "stale" | "failed" | "pending";
 };
 
@@ -18,13 +18,15 @@ const initialState: AIReviewState = {};
 export function AIReviewForm({
   classId,
   slotId,
-  disabled,
+  disabledReason,
   aiReviewState,
 }: AIReviewFormProps) {
   const [state, formAction, pending] = useActionState(
     runAIReviewAction,
     initialState,
   );
+  const reviewPending = aiReviewState === "pending";
+  const actionDisabled = Boolean(disabledReason) || pending || reviewPending;
 
   return (
     <form action={formAction} className="grid gap-3 rounded-md border p-3">
@@ -37,9 +39,14 @@ export function AIReviewForm({
           or assign a final mark.
         </p>
       </div>
-      {!disabled ? (
+      {!disabledReason ? (
         <p className={`rounded-md border px-3 py-2 text-xs ${getAIReviewPromptTone(aiReviewState)}`}>
           {getAIReviewPrompt(aiReviewState)}
+        </p>
+      ) : null}
+      {disabledReason ? (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          {disabledReason}
         </p>
       ) : null}
       {state.error ? (
@@ -52,12 +59,16 @@ export function AIReviewForm({
           {state.success}
         </p>
       ) : null}
-      <Button type="submit" disabled={disabled || pending}>
+      <Button
+        type="submit"
+        disabled={actionDisabled}
+        variant={aiReviewState === "current" ? "outline" : "default"}
+      >
         {pending ? "Running AI review..." : getAIReviewButtonLabel(aiReviewState)}
       </Button>
-      {disabled ? (
+      {aiReviewState === "current" && !disabledReason ? (
         <p className="text-xs text-muted-foreground">
-          A submitted version is required before AI review can run.
+          Rerun only if the submitted file, syllabus reference, or prompt guidance changed.
         </p>
       ) : null}
     </form>
@@ -73,7 +84,7 @@ function getAIReviewButtonLabel(state: AIReviewFormProps["aiReviewState"]) {
     case "failed":
       return "Retry AI review";
     case "pending":
-      return "Run again";
+      return "AI review pending";
     case "missing":
     default:
       return "Run AI review";

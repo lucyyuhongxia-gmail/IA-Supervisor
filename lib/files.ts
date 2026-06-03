@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -6,10 +6,6 @@ export const maxUploadSizeBytes = 25 * 1024 * 1024;
 
 export const allowedUploadTypes = new Map([
   ["application/pdf", ".pdf"],
-  [
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ".docx",
-  ],
 ]);
 
 const uploadRoot = path.join(process.cwd(), "uploads");
@@ -27,6 +23,12 @@ export function sanitizeFileName(fileName: string) {
 }
 
 export function getUploadExtension(file: File) {
+  const extension = path.extname(file.name).toLowerCase();
+
+  if (file.type === "application/pdf" || extension === ".pdf") {
+    return ".pdf";
+  }
+
   return allowedUploadTypes.get(file.type) ?? null;
 }
 
@@ -34,7 +36,7 @@ export async function saveUploadedFile(file: File) {
   const extension = getUploadExtension(file);
 
   if (!extension) {
-    throw new Error("Only PDF and DOCX files are supported.");
+    throw new Error("Only PDF files are supported.");
   }
 
   if (file.size > maxUploadSizeBytes) {
@@ -55,6 +57,21 @@ export async function saveUploadedFile(file: File) {
     mimeType: file.type,
     sizeBytes: file.size,
   };
+}
+
+export async function deleteStoredFile(storagePath: string) {
+  await unlink(storagePath).catch((error: unknown) => {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
+      return;
+    }
+
+    throw error;
+  });
 }
 
 export function formatFileSize(sizeBytes: number) {

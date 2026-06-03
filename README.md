@@ -1,6 +1,6 @@
 # IA Supervisor
 
-MVP foundation for IA Supervisor: Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui-compatible components, Prisma, PostgreSQL, Docker Compose, NextAuth Credentials, class creation, invite-code enrollment, seeded IB CS criteria, milestones, teacher/student dashboards, criterion-level submission slots, local PDF/DOCX upload, semantic extraction, cross-criterion consistency review, marking assistant, teacher feedback snapshots, submission version history, audit logs, final submission locking, admin-managed assessment references, class analytics, teacher final reports, ZIP final package export, and an AI review assistant foundation.
+MVP foundation for IA Supervisor: Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui-compatible components, Prisma, PostgreSQL, Docker Compose, NextAuth Credentials, class creation, invite-code enrollment, seeded IB CS criteria, milestones, teacher/student dashboards, criterion-level submission slots, local PDF upload, semantic extraction, cross-criterion consistency review, delta review, marking assistant, teacher feedback snapshots, submission version history, audit logs, final submission locking, admin-managed assessment references, class analytics, teacher final reports, ZIP final package export, and an AI review assistant foundation.
 
 Automated final grading is intentionally not implemented. AI review remains advisory and teacher judgement remains final.
 
@@ -123,7 +123,9 @@ The Prisma schema defines three user roles:
 - The seeded IB CS criteria are shown in each teacher class dashboard.
 - Students can open a class from `/student/classes/[classId]` and then submit each criterion from its own criterion page.
 - Students can see a completion status panel for the class, including passed count, waiting review count, revision count, final-submitted count, and reasons final submission is not yet available.
-- Students can upload PDF/DOCX files up to 25 MB for each criterion slot.
+- Students can upload PDF files up to 25 MB for each criterion slot.
+- Student PDF uploads must contain readable text; scanned/image-only PDFs are rejected before a submission version is created.
+- Teacher criterion review pages include an authenticated, same-origin inline PDF preview for uploaded PDF files.
 - Teachers can view each enrolled student's criterion status from `/teacher/classes/[classId]`.
 - Teachers can set review status and save feedback drafts or send student-visible feedback.
 - Teachers can insert built-in IB CS IA 2027 comment templates into feedback drafts by criterion.
@@ -135,6 +137,8 @@ The Prisma schema defines three user roles:
 - Files are attached to submission versions, and teacher feedback is copied onto the latest reviewed version.
 - Semantic extraction records structured IA elements from submitted files and can be confirmed by teachers.
 - Teachers can run cross-criterion consistency review from the student detail page to check A-C, A-E, B-D, and C-D alignment.
+- Teachers can run delta review on a criterion review page to compare the latest version against the previous version's teacher feedback.
+- Delta review is teacher-facing only and flags possibly addressed, still-needs-review, and new/changed evidence items for manual verification.
 - Teachers can run a conservative marking assistant on a criterion review page. It suggests a mark range and evidence notes.
 - Teachers can save final marks and final comments on the latest marking snapshot. Final marks remain teacher-controlled and are not student-facing yet.
 - Teachers can view class-level final mark overview from the analytics page, including A-E marks, totals, missing marks, and final submission state.
@@ -146,7 +150,8 @@ The Prisma schema defines three user roles:
 - Uploaded files are stored locally in `/uploads` and served through authenticated `/api/files/[fileId]` routes.
 - Teachers can run an AI review assistant on a single student criterion page. The AI review saves provider, model, summary, findings, and confidence.
 - AI review uses assessment references from `/docs/assessment/ib-cs-ia-2027`.
-- AI review extracts text from submitted PDF and DOCX files before sending criterion-specific context to the configured provider.
+- AI review extracts text from submitted PDF files before sending criterion-specific context to the configured provider.
+- AI review is blocked unless the latest criterion version has a readable PDF and a reviewable status.
 - AI review generation also refreshes semantic extraction for the latest submitted version.
 - AI review shows extraction status, evidence snippets, rubric alignment, and current/stale review state.
 - Teachers can copy AI review content into editable teacher feedback.

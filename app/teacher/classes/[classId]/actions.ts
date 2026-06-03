@@ -7,6 +7,8 @@ import { z } from "zod";
 import { createAuditLog } from "@/lib/audit-log";
 import { runConsistencyReviewForEnrollment } from "@/lib/consistency-review";
 import { getCurrentUser } from "@/lib/current-user";
+import { runDeltaReviewForSlot } from "@/lib/delta-review";
+import { extractFileText } from "@/lib/file-extraction";
 import { runMarkingAssistantForSlot } from "@/lib/marking-assistant";
 import { runAIReviewForSlot } from "@/lib/ai-review";
 import { prisma } from "@/lib/prisma";
@@ -78,12 +80,24 @@ const runMarkingAssistantSchema = z.object({
   slotId: z.string().min(1),
 });
 
+const runDeltaReviewSchema = z.object({
+  classId: z.string().min(1),
+  slotId: z.string().min(1),
+});
+
 const saveFinalMarkSchema = z.object({
   classId: z.string().min(1),
   markingSnapshotId: z.string().min(1),
   teacherFinalMark: z.coerce.number().int().min(0),
   teacherFinalComment: z.string().trim().max(4000).optional(),
 });
+
+const aiReviewRunnableStatuses = new Set<SubmissionStatus>([
+  "submitted",
+  "under_review",
+  "revision_needed",
+  "passed",
+]);
 
 export type TeacherFeedbackState = {
   error?: string;
@@ -111,6 +125,11 @@ export type ConsistencyReviewState = {
 };
 
 export type MarkingAssistantState = {
+  error?: string;
+  success?: string;
+};
+
+export type DeltaReviewState = {
   error?: string;
   success?: string;
 };
@@ -602,13 +621,53 @@ export async function runAIReviewAction(
       },
     },
     select: {
+      id: true,
+      status: true,
       enrollmentId: true,
       criterionId: true,
+      latestVersionId: true,
+      latestVersion: {
+        select: {
+          fileAssets: { orderBy: { createdAt: "desc" } },
+        },
+      },
     },
   });
 
   if (!slot) {
     return { error: "Submission slot not found." };
+  }
+
+  if (!aiReviewRunnableStatuses.has(slot.status)) {
+    return {
+      error:
+        "AI review can run only after a criterion has a submitted or reviewed version.",
+    };
+  }
+
+  if (!slot.latestVersionId || !slot.latestVersion) {
+    return { error: "A submitted version is required before AI review can run." };
+  }
+
+  const pdfFiles = slot.latestVersion.fileAssets.filter(isPdfFileAsset);
+
+  if (pdfFiles.length === 0) {
+    return { error: "A submitted PDF file is required before AI review can run." };
+  }
+
+  const extractionChecks = await Promise.all(
+    pdfFiles.map((fileAsset) => extractFileText(fileAsset)),
+  );
+  const hasReadableText = extractionChecks.some(
+    (extraction) =>
+      extraction.status === "success" && extraction.characterCount >= 120,
+  );
+
+  if (!hasReadableText) {
+    return {
+      error:
+        "AI review is blocked because the latest PDF does not contain enough readable text.",
+    };
   }
 
   await generateSemanticExtractionForSlot({
@@ -632,6 +691,13 @@ export async function runAIReviewAction(
   revalidatePath("/teacher/dashboard");
 
   return result;
+}
+
+function isPdfFileAsset(fileAsset: { mimeType: string; originalName: string }) {
+  return (
+    fileAsset.mimeType === "application/pdf" ||
+    fileAsset.originalName.toLowerCase().endsWith(".pdf")
+  );
 }
 
 export async function generateSemanticExtractionAction(
@@ -826,6 +892,61 @@ export async function runMarkingAssistantAction(
   }
 
   const result = await runMarkingAssistantForSlot({
+    classId: parsed.data.classId,
+    slotId: parsed.data.slotId,
+    requestedById: user.id,
+    actorRole: user.role as UserRole,
+  });
+
+  revalidatePath(
+    `/teacher/classes/${parsed.data.classId}/students/${slot.enrollmentId}/criteria/${slot.criterionId}`,
+  );
+
+  return result.error ? { error: result.error } : { success: result.success };
+}
+
+export async function runDeltaReviewAction(
+  _state: DeltaReviewState,
+  formData: FormData,
+): Promise<DeltaReviewState> {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== "teacher") {
+    return { error: "Only teacher accounts can run delta review." };
+  }
+
+  const parsed = runDeltaReviewSchema.safeParse({
+    classId: formData.get("classId"),
+    slotId: formData.get("slotId"),
+  });
+
+  if (!parsed.success) {
+    return {
+      error: parsed.error.errors[0]?.message ?? "Check the delta review request.",
+    };
+  }
+
+  const slot = await prisma.submissionSlot.findFirst({
+    where: {
+      id: parsed.data.slotId,
+      enrollment: {
+        classId: parsed.data.classId,
+        class: {
+          teacherId: user.id,
+        },
+      },
+    },
+    select: {
+      enrollmentId: true,
+      criterionId: true,
+    },
+  });
+
+  if (!slot) {
+    return { error: "Submission slot not found." };
+  }
+
+  const result = await runDeltaReviewForSlot({
     classId: parsed.data.classId,
     slotId: parsed.data.slotId,
     requestedById: user.id,

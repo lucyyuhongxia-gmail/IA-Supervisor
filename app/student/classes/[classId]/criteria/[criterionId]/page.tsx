@@ -179,8 +179,8 @@ export default async function StudentCriterionSubmissionPage({
           </CardTitle>
           <CardDescription>
             {needsRevision
-              ? "Upload a revised PDF/DOCX to create a new version and return this criterion to your teacher's review queue."
-              : "Upload a PDF/DOCX to create a new submitted version. Notes move into version history after submission."}
+              ? "Upload a revised PDF to create a new version and return this criterion to your teacher's review queue."
+              : "Upload a PDF to create a new submitted version. Notes move into version history after submission."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -342,7 +342,7 @@ function getStudentStatusMessage(status: string) {
     case "not_started":
     case "draft":
     default:
-      return "Upload a PDF or DOCX when this criterion is ready for teacher review.";
+      return "Upload a PDF when this criterion is ready for teacher review.";
   }
 }
 

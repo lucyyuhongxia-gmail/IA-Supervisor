@@ -16,6 +16,7 @@ import {
 
 import { AIReviewHistory } from "./ai-review-history";
 import { AIReviewForm } from "./ai-review-form";
+import { DeltaReviewPanel } from "./delta-review-panel";
 import { MarkingAssistantPanel } from "./marking-assistant-panel";
 import { ReopenFinalSubmissionForm } from "./reopen-final-submission-form";
 import { SemanticExtractionPanel } from "./semantic-extraction-panel";
@@ -113,6 +114,15 @@ export default async function TeacherCriterionReviewPage({
           requestedBy: { select: { name: true, email: true } },
         },
       },
+      deltaReviews: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        include: {
+          requestedBy: { select: { name: true, email: true } },
+          previousVersion: { select: { versionNumber: true } },
+          currentVersion: { select: { versionNumber: true } },
+        },
+      },
     },
   });
 
@@ -141,6 +151,7 @@ export default async function TeacherCriterionReviewPage({
   const nextReviewItem =
     currentQueueIndex >= 0 ? reviewQueue[currentQueueIndex + 1] : reviewQueue[0];
   const latestAIReviewRun = slot.aiReviewRuns[0];
+  const latestDeltaReview = slot.deltaReviews[0] ?? null;
   const aiReviewState = getAIReviewWorkflowState(
     slot.latestVersionId,
     latestAIReviewRun?.submissionVersionId,
@@ -155,6 +166,12 @@ export default async function TeacherCriterionReviewPage({
   const fileExtractionPreviewsById = new Map(
     fileExtractionPreviews.map((preview) => [preview.fileId, preview.extraction]),
   );
+  const aiReviewDisabledReason = getAIReviewDisabledReason({
+    status: slot.status,
+    latestVersionId: slot.latestVersionId,
+    files,
+    fileExtractionPreviews,
+  });
   const semanticExtraction = latestVersion
     ? await prisma.semanticExtraction.findUnique({
         where: {
@@ -295,6 +312,7 @@ export default async function TeacherCriterionReviewPage({
                 <div className="grid gap-3">
                   {files.map((fileAsset) => {
                     const extraction = fileExtractionPreviewsById.get(fileAsset.id);
+                    const isPdf = isPdfFile(fileAsset);
 
                     return (
                       <div key={fileAsset.id} className="rounded-md border p-3 text-sm">
@@ -319,6 +337,23 @@ export default async function TeacherCriterionReviewPage({
                             </p>
                           ) : null}
                         </div>
+                        {isPdf ? (
+                          <details className="mt-3 rounded-md border bg-background">
+                            <summary className="cursor-pointer px-3 py-2 text-xs font-medium">
+                              PDF preview
+                            </summary>
+                            <div className="border-t bg-muted/30 p-2">
+                              <iframe
+                                src={`/api/files/${fileAsset.id}?disposition=inline#toolbar=1&navpanes=0`}
+                                title={`PDF preview for ${fileAsset.originalName}`}
+                                className="h-[640px] w-full rounded-md border bg-background"
+                              />
+                              <p className="mt-2 text-xs text-muted-foreground">
+                                If the preview is blank, open the file link above.
+                              </p>
+                            </div>
+                          </details>
+                        ) : null}
                         {extraction ? (
                           <details className="mt-3 rounded-md border bg-muted/30 px-3 py-2">
                             <summary className="cursor-pointer text-xs font-medium">
@@ -390,6 +425,33 @@ export default async function TeacherCriterionReviewPage({
                 text: finding.text,
               })),
             }))}
+          />
+
+          <DeltaReviewPanel
+            classId={enrollment.class.id}
+            slotId={slot.id}
+            disabled={slot.versions.length < 2}
+            versionCount={slot.versions.length}
+            review={
+              latestDeltaReview
+                ? {
+                    id: latestDeltaReview.id,
+                    summary: latestDeltaReview.summary,
+                    confidence: latestDeltaReview.confidence,
+                    createdAtLabel: latestDeltaReview.createdAt.toLocaleString(),
+                    requestedByName:
+                      latestDeltaReview.requestedBy.name ??
+                      latestDeltaReview.requestedBy.email,
+                    previousVersionNumber:
+                      latestDeltaReview.previousVersion.versionNumber,
+                    currentVersionNumber:
+                      latestDeltaReview.currentVersion.versionNumber,
+                    resolvedJson: latestDeltaReview.resolvedJson,
+                    remainingJson: latestDeltaReview.remainingJson,
+                    newEvidenceJson: latestDeltaReview.newEvidenceJson,
+                  }
+                : null
+            }
           />
 
           {latestVersion?.feedbackSnapshots.length ? (
@@ -538,7 +600,7 @@ export default async function TeacherCriterionReviewPage({
           <AIReviewForm
             classId={enrollment.class.id}
             slotId={slot.id}
-            disabled={!slot.latestVersionId}
+            disabledReason={aiReviewDisabledReason}
             aiReviewState={aiReviewState}
           />
           {slot.status === "final_submitted" ? (
@@ -620,6 +682,57 @@ function getAIReviewWorkflowState(
   return "pending";
 }
 
+function getAIReviewDisabledReason({
+  status,
+  latestVersionId,
+  files,
+  fileExtractionPreviews,
+}: {
+  status: SubmissionStatus;
+  latestVersionId: string | null;
+  files: Array<{ id: string; mimeType: string; originalName: string }>;
+  fileExtractionPreviews: Array<{
+    fileId: string;
+    extraction: { status: string; characterCount: number };
+  }>;
+}) {
+  const runnableStatuses: SubmissionStatus[] = [
+    "submitted",
+    "under_review",
+    "revision_needed",
+    "passed",
+  ];
+
+  if (!latestVersionId) {
+    return "A submitted version is required before AI review can run.";
+  }
+
+  if (!runnableStatuses.includes(status)) {
+    return `AI review cannot run while this criterion is ${formatSubmissionStatus(status)}.`;
+  }
+
+  const pdfFileIds = files
+    .filter(isPdfFile)
+    .map((fileAsset) => fileAsset.id);
+
+  if (pdfFileIds.length === 0) {
+    return "A submitted PDF file is required before AI review can run.";
+  }
+
+  const hasReadablePdf = fileExtractionPreviews.some(
+    (preview) =>
+      pdfFileIds.includes(preview.fileId) &&
+      preview.extraction.status === "success" &&
+      preview.extraction.characterCount >= 120,
+  );
+
+  if (!hasReadablePdf) {
+    return "AI review is blocked because the latest PDF does not contain enough readable text.";
+  }
+
+  return null;
+}
+
 function getFileExtractionTone(status: string) {
   switch (status) {
     case "success":
@@ -632,6 +745,13 @@ function getFileExtractionTone(status: string) {
 
 function getFileExtractionLabel(status: string) {
   return status === "success" ? "Readable" : "Limited extraction";
+}
+
+function isPdfFile(fileAsset: { mimeType: string; originalName: string }) {
+  return (
+    fileAsset.mimeType === "application/pdf" ||
+    fileAsset.originalName.toLowerCase().endsWith(".pdf")
+  );
 }
 
 function truncatePreview(value: string) {
@@ -692,6 +812,8 @@ function formatAuditAction(action: string) {
       return "Marking assistant completed";
     case "marking.final_mark_saved":
       return "Teacher final mark saved";
+    case "delta_review.completed":
+      return "Delta review completed";
     default:
       return action
         .split(".")

@@ -8,11 +8,12 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ fileId: string }> },
 ) {
   const user = await getCurrentUser();
   const { fileId } = await params;
+  const requestUrl = new URL(request.url);
 
   if (!user) {
     return new NextResponse("Unauthorized", { status: 401 });
@@ -67,12 +68,16 @@ export async function GET(
   }
 
   const fileBuffer = await readFile(fileAsset.storagePath);
+  const shouldPreviewInline =
+    requestUrl.searchParams.get("disposition") === "inline" &&
+    fileAsset.mimeType === "application/pdf";
+  const disposition = shouldPreviewInline ? "inline" : "attachment";
 
   return new NextResponse(fileBuffer, {
     headers: {
       "Content-Type": fileAsset.mimeType,
       "Content-Length": fileAsset.sizeBytes.toString(),
-      "Content-Disposition": `attachment; filename="${encodeURIComponent(
+      "Content-Disposition": `${disposition}; filename="${encodeURIComponent(
         fileAsset.originalName,
       )}"`,
     },

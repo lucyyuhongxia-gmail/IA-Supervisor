@@ -42,12 +42,12 @@ export function SubmissionForm({
       <input type="hidden" name="slotId" value={slotId} />
 
       <div className="grid gap-2">
-        <Label htmlFor={`artifactFile-${slotId}`}>Upload PDF or DOCX</Label>
+        <Label htmlFor={`artifactFile-${slotId}`}>Upload PDF</Label>
         <Input
           id={`artifactFile-${slotId}`}
           name="artifactFile"
           type="file"
-          accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          accept=".pdf,application/pdf"
           disabled={!canEdit || isPending}
         />
         <p className="text-xs text-muted-foreground">
@@ -57,8 +57,8 @@ export function SubmissionForm({
             : ""}
         </p>
         <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-          Use a text-based PDF or DOCX when possible. Scanned image-only PDFs may
-          open visually but cannot be read reliably by AI review.
+          Submit a text-based PDF. Scanned image-only PDFs may open visually but
+          cannot be read reliably by AI review.
         </p>
       </div>
 

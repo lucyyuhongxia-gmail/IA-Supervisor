@@ -79,10 +79,11 @@ The following actions are recorded in `AuditLog`:
 
 - Middleware sets:
   - `X-Content-Type-Options: nosniff`
-  - `X-Frame-Options: DENY`
+  - `X-Frame-Options: SAMEORIGIN`
   - `Referrer-Policy: strict-origin-when-cross-origin`
   - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
   - `Strict-Transport-Security` on HTTPS requests
+- Authenticated PDF previews use same-origin iframe embedding only; cross-origin framing remains blocked.
 
 ## Remaining Risks / Deferred Production Work
 

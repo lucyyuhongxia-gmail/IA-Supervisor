@@ -59,7 +59,11 @@ export function AIReviewHistory({ runs, latestVersionId }: AIReviewHistoryProps)
         {latestRun ? (
           <div className="grid gap-4">
             <AIReviewQualityPanel run={latestRun} latestVersionId={latestVersionId} />
-            <AIReviewRunCard run={latestRun} isLatest />
+            <AIReviewRunCard
+              run={latestRun}
+              latestVersionId={latestVersionId}
+              isLatest
+            />
             {olderRuns.length > 0 ? (
               <details className="rounded-md border bg-muted/20 p-3">
                 <summary className="cursor-pointer text-sm font-medium">
@@ -67,7 +71,11 @@ export function AIReviewHistory({ runs, latestVersionId }: AIReviewHistoryProps)
                 </summary>
                 <div className="mt-3 grid gap-3">
                   {olderRuns.map((run) => (
-                    <AIReviewRunCard key={run.id} run={run} />
+                    <AIReviewRunCard
+                      key={run.id}
+                      run={run}
+                      latestVersionId={latestVersionId}
+                    />
                   ))}
                 </div>
               </details>
@@ -189,9 +197,11 @@ function QualityControlMetric({
 
 function AIReviewRunCard({
   run,
+  latestVersionId,
   isLatest = false,
 }: {
   run: AIReviewRunView;
+  latestVersionId: string | null;
   isLatest?: boolean;
 }) {
   const diagnostics = getAIReviewExtractionDiagnostics(run.rawResponse);
@@ -204,6 +214,8 @@ function AIReviewRunCard({
     "suggestion",
   );
   const isCompleted = run.status === "completed";
+  const coversLatestVersion =
+    Boolean(latestVersionId) && run.submissionVersionId === latestVersionId;
 
   return (
     <div
@@ -223,6 +235,15 @@ function AIReviewRunCard({
                 Latest
               </span>
             ) : null}
+            {coversLatestVersion ? (
+              <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
+                Current version
+              </span>
+            ) : (
+              <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+                Previous version
+              </span>
+            )}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             {run.createdAtLabel} · {run.requestedByName}

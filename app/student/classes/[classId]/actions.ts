@@ -6,7 +6,8 @@ import { z } from "zod";
 
 import { createAuditLog } from "@/lib/audit-log";
 import { getCurrentUser } from "@/lib/current-user";
-import { saveUploadedFile } from "@/lib/files";
+import { extractFileText } from "@/lib/file-extraction";
+import { deleteStoredFile, saveUploadedFile } from "@/lib/files";
 import { prisma } from "@/lib/prisma";
 import { generateSemanticExtractionForSlot } from "@/lib/semantic-extraction";
 import { studentWritableSourceStatuses } from "@/lib/submissions";
@@ -25,6 +26,8 @@ export type StudentSubmissionState = {
   error?: string;
   success?: string;
 };
+
+const minimumReadablePdfCharacters = 120;
 
 export async function updateSubmissionSlotAction(
   _state: StudentSubmissionState,
@@ -80,7 +83,20 @@ export async function updateSubmissionSlotAction(
   if (hasUploadedFile) {
     try {
       fileAsset = await saveUploadedFile(uploadedFile);
+      const validation = await validateReadablePdfUpload(fileAsset);
+
+      if (!validation.valid) {
+        await deleteStoredFile(fileAsset.storagePath);
+
+        return {
+          error: validation.message,
+        };
+      }
     } catch (error) {
+      if (fileAsset) {
+        await deleteStoredFile(fileAsset.storagePath).catch(() => null);
+      }
+
       return {
         error:
           error instanceof Error
@@ -198,6 +214,25 @@ export async function updateSubmissionSlotAction(
   return {
     success: hasUploadedFile ? "Submission uploaded." : "Note saved.",
   };
+}
+
+async function validateReadablePdfUpload(
+  fileAsset: Awaited<ReturnType<typeof saveUploadedFile>>,
+) {
+  const extraction = await extractFileText(fileAsset);
+
+  if (
+    extraction.status !== "success" ||
+    extraction.characterCount < minimumReadablePdfCharacters
+  ) {
+    return {
+      valid: false,
+      message:
+        "This PDF does not contain enough readable text. Please export your document as a text-based PDF and upload again.",
+    };
+  }
+
+  return { valid: true };
 }
 
 export async function finalizeClassSubmissionAction(
