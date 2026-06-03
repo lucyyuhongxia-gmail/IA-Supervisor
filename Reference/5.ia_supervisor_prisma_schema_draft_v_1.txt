@@ -1,0 +1,704 @@
+// IA Supervisor — Prisma Schema Draft v1
+// Target database: PostgreSQL 16
+// ORM: Prisma
+//
+// This draft is based on:
+// - Domain Model v1
+// - Submission State Machine v1
+// - AI Review JSON Schema v1
+//
+// Design priorities:
+// - teacher-first workflow
+// - criterion-based versioned submissions
+// - immutable submitted versions
+// - feedback snapshots
+// - AI artifacts separated from workflow states
+// - flexible JSON for evolving AI schemas
+
+// -----------------------------------------------------------------------------
+// Generator & Datasource
+// -----------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------------
+
+enum UserRole {
+  teacher
+  student
+  admin
+}
+
+enum LanguagePref {
+  zh_CN
+  en
+}
+
+enum SubmissionArtifactType {
+  criterion
+  appendix
+  video
+  product
+  coverpage
+  other
+}
+
+enum SubmissionStatus {
+  not_started
+  draft
+  submitted
+  under_review
+  revision_needed
+  passed
+  final_submitted
+  locked
+  withdrawn
+}
+
+enum FeedbackStatus {
+  draft
+  approved
+  sent
+  superseded
+}
+
+enum AIReviewType {
+  semantic_extraction
+  criterion_review
+  consistency_review
+  delta_review
+  marking_assistant
+  teacher_comment_draft
+  video_review
+}
+
+enum AIReviewStatus {
+  pending
+  completed
+  failed
+}
+
+enum ExtractionStatus {
+  pending
+  completed
+  failed
+  student_confirmed
+  teacher_edited
+}
+
+enum ComplianceOverall {
+  pass
+  warning
+  fail
+}
+
+enum ReminderChannel {
+  dashboard
+  email
+}
+
+enum ReminderTrigger {
+  d7
+  d3
+  d1
+  overdue
+  custom
+}
+
+enum FileAssetType {
+  documentation_pdf
+  documentation_docx
+  appendix_pdf
+  video
+  product_archive
+  feedback_markdown
+  feedback_pdf
+  extracted_text
+  other
+}
+
+enum FinalPackageStatus {
+  incomplete
+  ready_for_teacher_review
+  teacher_reviewed
+  locked
+  exported
+}
+
+// -----------------------------------------------------------------------------
+// Identity & Access
+// -----------------------------------------------------------------------------
+
+model User {
+  id             String       @id @default(uuid()) @db.Uuid
+  email          String       @unique
+  passwordHash   String       @map("password_hash")
+  name           String
+  role           UserRole
+  languagePref   LanguagePref @default(en) @map("language_pref")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  taughtClasses  Class[]      @relation("TeacherClasses")
+  enrollments    Enrollment[]
+  fileAssets     FileAsset[]  @relation("FileOwner")
+  feedbacks      FeedbackSnapshot[] @relation("TeacherFeedback")
+  markingSnapshots MarkingSnapshot[] @relation("TeacherMarking")
+  aiReviewRuns   AIReviewRun[] @relation("AIReviewCreatedBy")
+  auditLogs       AuditLog[]   @relation("AuditActor")
+  reminderLogs    ReminderLog[]
+
+  @@map("users")
+}
+
+// -----------------------------------------------------------------------------
+// Class & Enrollment
+// -----------------------------------------------------------------------------
+
+model Class {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  examSession  String   @map("exam_session")
+  subjectId    String   @map("subject_id") @db.Uuid
+  teacherId    String   @map("teacher_id") @db.Uuid
+  inviteCode   String   @unique @map("invite_code")
+  isArchived   Boolean  @default(false) @map("is_archived")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  subject      Subject  @relation(fields: [subjectId], references: [id])
+  teacher      User     @relation("TeacherClasses", fields: [teacherId], references: [id])
+  enrollments  Enrollment[]
+  milestones   Milestone[]
+  submissionSlots SubmissionSlot[]
+  iaSnapshots  IASnapshot[]
+  finalPackages FinalPackage[]
+
+  @@index([teacherId])
+  @@index([subjectId])
+  @@map("classes")
+}
+
+model Enrollment {
+  id         String   @id @default(uuid()) @db.Uuid
+  studentId  String   @map("student_id") @db.Uuid
+  classId    String   @map("class_id") @db.Uuid
+  enrolledAt DateTime @default(now()) @map("enrolled_at")
+
+  student    User     @relation(fields: [studentId], references: [id])
+  class      Class    @relation(fields: [classId], references: [id])
+
+  @@unique([studentId, classId])
+  @@index([classId])
+  @@map("enrollments")
+}
+
+// -----------------------------------------------------------------------------
+// Subject & Criterion Definitions
+// -----------------------------------------------------------------------------
+
+model Subject {
+  id                 String   @id @default(uuid()) @db.Uuid
+  name               String
+  slug               String   @unique
+  milestoneDefaults  Json?    @map("milestone_defaults")
+  complianceRules    Json?    @map("compliance_rules")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  classes            Class[]
+  criteria           CriterionDef[]
+
+  @@map("subjects")
+}
+
+model CriterionDef {
+  id                String   @id @default(uuid()) @db.Uuid
+  subjectId          String   @map("subject_id") @db.Uuid
+  code              String
+  nameZh            String   @map("name_zh")
+  nameEn            String   @map("name_en")
+  marks             Int
+  recommendedWords  Int?     @map("recommended_words")
+  sortOrder         Int      @map("sort_order")
+  levelDescriptors  Json     @map("level_descriptors")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  subject           Subject  @relation(fields: [subjectId], references: [id])
+  milestones        Milestone[]
+  submissionSlots   SubmissionSlot[]
+  criterionReviews  CriterionReview[]
+  feedbackTemplates FeedbackTemplate[]
+
+  @@unique([subjectId, code])
+  @@index([subjectId, sortOrder])
+  @@map("criterion_defs")
+}
+
+// -----------------------------------------------------------------------------
+// Milestones & Reminders
+// -----------------------------------------------------------------------------
+
+model Milestone {
+  id              String   @id @default(uuid()) @db.Uuid
+  classId          String   @map("class_id") @db.Uuid
+  criterionDefId   String?  @map("criterion_def_id") @db.Uuid
+  nameZh           String   @map("name_zh")
+  nameEn           String   @map("name_en")
+  descriptionZh    String?  @map("description_zh") @db.Text
+  descriptionEn    String?  @map("description_en") @db.Text
+  dueDate          DateTime @map("due_date")
+  reminderConfig   Json?    @map("reminder_config")
+  sortOrder        Int      @map("sort_order")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  class            Class        @relation(fields: [classId], references: [id])
+  criterionDef     CriterionDef? @relation(fields: [criterionDefId], references: [id])
+  reminderLogs     ReminderLog[]
+
+  @@index([classId, dueDate])
+  @@index([criterionDefId])
+  @@map("milestones")
+}
+
+model ReminderLog {
+  id          String          @id @default(uuid()) @db.Uuid
+  studentId   String          @map("student_id") @db.Uuid
+  milestoneId String          @map("milestone_id") @db.Uuid
+  channel     ReminderChannel
+  trigger     ReminderTrigger
+  sentAt      DateTime        @map("sent_at")
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  student     User            @relation(fields: [studentId], references: [id])
+  milestone   Milestone       @relation(fields: [milestoneId], references: [id])
+
+  @@index([studentId])
+  @@index([milestoneId])
+  @@map("reminder_logs")
+}
+
+// -----------------------------------------------------------------------------
+// Submission & Versioning
+// -----------------------------------------------------------------------------
+
+model SubmissionSlot {
+  id              String                 @id @default(uuid()) @db.Uuid
+  studentId        String                 @map("student_id") @db.Uuid
+  classId          String                 @map("class_id") @db.Uuid
+  criterionDefId   String?                @map("criterion_def_id") @db.Uuid
+  artifactType     SubmissionArtifactType @map("artifact_type")
+  currentVersionId String?                @unique @map("current_version_id") @db.Uuid
+  latestStatus     SubmissionStatus       @default(not_started) @map("latest_status")
+  isFinalLocked    Boolean                @default(false) @map("is_final_locked")
+  createdAt        DateTime               @default(now()) @map("created_at")
+  updatedAt        DateTime               @updatedAt @map("updated_at")
+
+  student          User                   @relation(fields: [studentId], references: [id])
+  class            Class                  @relation(fields: [classId], references: [id])
+  criterionDef     CriterionDef?          @relation(fields: [criterionDefId], references: [id])
+  currentVersion   SubmissionVersion?     @relation("CurrentSubmissionVersion", fields: [currentVersionId], references: [id])
+  versions         SubmissionVersion[]    @relation("SlotVersions")
+  deltaReviews     DeltaReview[]
+
+  @@unique([studentId, classId, criterionDefId, artifactType])
+  @@index([classId, latestStatus])
+  @@index([studentId])
+  @@map("submission_slots")
+}
+
+model SubmissionVersion {
+  id                         String            @id @default(uuid()) @db.Uuid
+  submissionSlotId            String            @map("submission_slot_id") @db.Uuid
+  versionNumber               Int               @map("version_number")
+  status                      SubmissionStatus
+  originalFilename            String?           @map("original_filename")
+  fileType                    String?           @map("file_type")
+  fileSize                    Int?              @map("file_size")
+  extractedTextPath           String?           @map("extracted_text_path")
+  wordCount                   Int?              @map("word_count")
+  studentConfirmedExtraction  Boolean           @default(false) @map("student_confirmed_extraction")
+  metaJson                    Json?             @map("meta_json")
+  submittedAt                 DateTime?         @map("submitted_at")
+  createdAt                   DateTime          @default(now()) @map("created_at")
+  updatedAt                   DateTime          @updatedAt @map("updated_at")
+
+  submissionSlot              SubmissionSlot    @relation("SlotVersions", fields: [submissionSlotId], references: [id])
+  currentForSlot              SubmissionSlot?   @relation("CurrentSubmissionVersion")
+  fileAssets                  FileAsset[]
+  semanticExtractions         SemanticExtraction[]
+  complianceReports           ComplianceReport[]
+  aiReviewRuns                AIReviewRun[]
+  criterionReviews            CriterionReview[]
+  feedbackSnapshots           FeedbackSnapshot[]
+  markingSnapshots            MarkingSnapshot[]
+  teacherCommentDrafts        TeacherCommentDraft[]
+  deltaReviewsAsPrevious      DeltaReview[]     @relation("PreviousVersion")
+  deltaReviewsAsCurrent       DeltaReview[]     @relation("CurrentVersion")
+  finalPackageItems           FinalPackageItem[]
+
+  @@unique([submissionSlotId, versionNumber])
+  @@index([submissionSlotId, status])
+  @@index([submittedAt])
+  @@map("submission_versions")
+}
+
+model FileAsset {
+  id                  String        @id @default(uuid()) @db.Uuid
+  ownerId             String        @map("owner_id") @db.Uuid
+  submissionVersionId String?       @map("submission_version_id") @db.Uuid
+  filePath            String        @map("file_path")
+  originalFilename    String        @map("original_filename")
+  mimeType            String        @map("mime_type")
+  fileSize            Int           @map("file_size")
+  checksum            String?
+  assetType           FileAssetType @map("asset_type")
+  createdAt           DateTime      @default(now()) @map("created_at")
+
+  owner               User          @relation("FileOwner", fields: [ownerId], references: [id])
+  submissionVersion   SubmissionVersion? @relation(fields: [submissionVersionId], references: [id])
+
+  @@index([ownerId])
+  @@index([submissionVersionId])
+  @@index([assetType])
+  @@map("file_assets")
+}
+
+// -----------------------------------------------------------------------------
+// Semantic Extraction & Compliance
+// -----------------------------------------------------------------------------
+
+model SemanticExtraction {
+  id                  String           @id @default(uuid()) @db.Uuid
+  submissionVersionId String           @map("submission_version_id") @db.Uuid
+  aiReviewRunId       String?          @unique @map("ai_review_run_id") @db.Uuid
+  extractionModel     String?          @map("extraction_model")
+  extractionStatus    ExtractionStatus @default(pending) @map("extraction_status")
+  extractedJson       Json             @map("extracted_json")
+  studentConfirmedAt  DateTime?        @map("student_confirmed_at")
+  teacherEditedAt     DateTime?        @map("teacher_edited_at")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  submissionVersion   SubmissionVersion @relation(fields: [submissionVersionId], references: [id])
+  aiReviewRun         AIReviewRun?       @relation(fields: [aiReviewRunId], references: [id])
+
+  @@index([submissionVersionId])
+  @@index([extractionStatus])
+  @@map("semantic_extractions")
+}
+
+model ComplianceReport {
+  id                  String            @id @default(uuid()) @db.Uuid
+  submissionVersionId String            @map("submission_version_id") @db.Uuid
+  runAt               DateTime          @map("run_at")
+  rulesResults        Json              @map("rules_results")
+  passedCount         Int               @default(0) @map("passed_count")
+  warningCount        Int               @default(0) @map("warning_count")
+  criticalCount       Int               @default(0) @map("critical_count")
+  overall             ComplianceOverall
+  createdAt           DateTime          @default(now()) @map("created_at")
+
+  submissionVersion   SubmissionVersion @relation(fields: [submissionVersionId], references: [id])
+
+  @@index([submissionVersionId])
+  @@index([overall])
+  @@map("compliance_reports")
+}
+
+// -----------------------------------------------------------------------------
+// IA Snapshot & Cross-Criterion Consistency
+// -----------------------------------------------------------------------------
+
+model IASnapshot {
+  id                 String   @id @default(uuid()) @db.Uuid
+  studentId           String   @map("student_id") @db.Uuid
+  classId             String   @map("class_id") @db.Uuid
+  snapshotType        String   @map("snapshot_type") // current_latest | review_context | final_package
+  includedVersionIds  Json     @map("included_version_ids")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  student             User     @relation(fields: [studentId], references: [id])
+  class               Class    @relation(fields: [classId], references: [id])
+  aiReviewRuns         AIReviewRun[]
+  consistencyChecks    ConsistencyCheck[]
+
+  @@index([studentId, classId])
+  @@index([snapshotType])
+  @@map("ia_snapshots")
+}
+
+model ConsistencyCheck {
+  id            String   @id @default(uuid()) @db.Uuid
+  iaSnapshotId  String   @map("ia_snapshot_id") @db.Uuid
+  aiReviewRunId String?  @map("ai_review_run_id") @db.Uuid
+  checkType     String   @map("check_type")
+  status        String
+  severity      String
+  sourceRefs    Json?    @map("source_refs")
+  targetRefs    Json?    @map("target_refs")
+  finding       String   @db.Text
+  recommendation String? @db.Text
+  checkJson     Json?    @map("check_json")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  iaSnapshot    IASnapshot @relation(fields: [iaSnapshotId], references: [id])
+  aiReviewRun   AIReviewRun? @relation(fields: [aiReviewRunId], references: [id])
+
+  @@index([iaSnapshotId])
+  @@index([checkType])
+  @@index([severity])
+  @@map("consistency_checks")
+}
+
+// -----------------------------------------------------------------------------
+// AI Review Runs & Specialized Outputs
+// -----------------------------------------------------------------------------
+
+model AIReviewRun {
+  id                  String          @id @default(uuid()) @db.Uuid
+  submissionVersionId String?         @map("submission_version_id") @db.Uuid
+  iaSnapshotId        String?         @map("ia_snapshot_id") @db.Uuid
+  reviewType          AIReviewType    @map("review_type")
+  modelName           String          @map("model_name")
+  promptVersion       String          @map("prompt_version")
+  status              AIReviewStatus  @default(pending)
+  inputSummary        Json?           @map("input_summary")
+  outputJson          Json?           @map("output_json")
+  errorMessage        String?         @map("error_message") @db.Text
+  createdById         String?         @map("created_by_id") @db.Uuid
+  createdAt           DateTime        @default(now()) @map("created_at")
+  completedAt         DateTime?       @map("completed_at")
+
+  submissionVersion   SubmissionVersion? @relation(fields: [submissionVersionId], references: [id])
+  iaSnapshot          IASnapshot?        @relation(fields: [iaSnapshotId], references: [id])
+  createdBy           User?              @relation("AIReviewCreatedBy", fields: [createdById], references: [id])
+  semanticExtraction  SemanticExtraction?
+  criterionReviews    CriterionReview[]
+  consistencyChecks   ConsistencyCheck[]
+  deltaReviews        DeltaReview[]
+  markingSnapshots    MarkingSnapshot[]
+  teacherCommentDrafts TeacherCommentDraft[]
+
+  @@index([submissionVersionId])
+  @@index([iaSnapshotId])
+  @@index([reviewType, status])
+  @@index([createdAt])
+  @@map("ai_review_runs")
+}
+
+model CriterionReview {
+  id                  String   @id @default(uuid()) @db.Uuid
+  aiReviewRunId       String   @map("ai_review_run_id") @db.Uuid
+  submissionVersionId String   @map("submission_version_id") @db.Uuid
+  criterionDefId      String   @map("criterion_def_id") @db.Uuid
+  reviewJson          Json     @map("review_json")
+  markdownDraft       String?  @map("markdown_draft") @db.Text
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  aiReviewRun         AIReviewRun       @relation(fields: [aiReviewRunId], references: [id])
+  submissionVersion   SubmissionVersion @relation(fields: [submissionVersionId], references: [id])
+  criterionDef        CriterionDef      @relation(fields: [criterionDefId], references: [id])
+
+  @@index([submissionVersionId])
+  @@index([criterionDefId])
+  @@map("criterion_reviews")
+}
+
+model DeltaReview {
+  id                         String   @id @default(uuid()) @db.Uuid
+  submissionSlotId            String   @map("submission_slot_id") @db.Uuid
+  previousSubmissionVersionId String   @map("previous_submission_version_id") @db.Uuid
+  currentSubmissionVersionId  String   @map("current_submission_version_id") @db.Uuid
+  aiReviewRunId               String?  @map("ai_review_run_id") @db.Uuid
+  deltaJson                   Json     @map("delta_json")
+  markdownSummary             String?  @map("markdown_summary") @db.Text
+  createdAt                   DateTime @default(now()) @map("created_at")
+
+  submissionSlot              SubmissionSlot    @relation(fields: [submissionSlotId], references: [id])
+  previousVersion             SubmissionVersion @relation("PreviousVersion", fields: [previousSubmissionVersionId], references: [id])
+  currentVersion              SubmissionVersion @relation("CurrentVersion", fields: [currentSubmissionVersionId], references: [id])
+  aiReviewRun                 AIReviewRun?      @relation(fields: [aiReviewRunId], references: [id])
+
+  @@index([submissionSlotId])
+  @@index([previousSubmissionVersionId])
+  @@index([currentSubmissionVersionId])
+  @@map("delta_reviews")
+}
+
+// -----------------------------------------------------------------------------
+// Feedback, Templates, Marking, Comments
+// -----------------------------------------------------------------------------
+
+model FeedbackSnapshot {
+  id                  String         @id @default(uuid()) @db.Uuid
+  submissionVersionId String         @map("submission_version_id") @db.Uuid
+  teacherId           String         @map("teacher_id") @db.Uuid
+  sourceAIReviewId    String?        @map("source_ai_review_id") @db.Uuid
+  status              FeedbackStatus @default(draft)
+  feedbackMarkdown    String         @map("feedback_markdown") @db.Text
+  feedbackJson        Json?          @map("feedback_json")
+  sentToStudentAt     DateTime?      @map("sent_to_student_at")
+  createdAt           DateTime       @default(now()) @map("created_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
+
+  submissionVersion   SubmissionVersion @relation(fields: [submissionVersionId], references: [id])
+  teacher             User              @relation("TeacherFeedback", fields: [teacherId], references: [id])
+  sourceAIReview      AIReviewRun?      @relation(fields: [sourceAIReviewId], references: [id])
+
+  @@index([submissionVersionId])
+  @@index([teacherId])
+  @@index([status])
+  @@map("feedback_snapshots")
+}
+
+model FeedbackTemplate {
+  id              String   @id @default(uuid()) @db.Uuid
+  teacherId        String   @map("teacher_id") @db.Uuid
+  criterionDefId   String?  @map("criterion_def_id") @db.Uuid
+  title            String
+  contentZh        String?  @map("content_zh") @db.Text
+  contentEn        String?  @map("content_en") @db.Text
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  teacher          User     @relation(fields: [teacherId], references: [id])
+  criterionDef     CriterionDef? @relation(fields: [criterionDefId], references: [id])
+
+  @@index([teacherId])
+  @@index([criterionDefId])
+  @@map("feedback_templates")
+}
+
+model MarkingSnapshot {
+  id                       String   @id @default(uuid()) @db.Uuid
+  submissionVersionId       String   @map("submission_version_id") @db.Uuid
+  teacherId                 String   @map("teacher_id") @db.Uuid
+  sourceAIReviewId          String?  @map("source_ai_review_id") @db.Uuid
+  predictedMark             Int?     @map("predicted_mark")
+  predictedMarkRange        Json?    @map("predicted_mark_range")
+  confidence                String?
+  descriptorEvidenceJson    Json?    @map("descriptor_evidence_json")
+  teacherFinalMark          Int?     @map("teacher_final_mark")
+  teacherCommentMarkdown    String?  @map("teacher_comment_markdown") @db.Text
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+
+  submissionVersion         SubmissionVersion @relation(fields: [submissionVersionId], references: [id])
+  teacher                   User              @relation("TeacherMarking", fields: [teacherId], references: [id])
+  sourceAIReview            AIReviewRun?      @relation(fields: [sourceAIReviewId], references: [id])
+
+  @@index([submissionVersionId])
+  @@index([teacherId])
+  @@map("marking_snapshots")
+}
+
+model TeacherCommentDraft {
+  id                  String   @id @default(uuid()) @db.Uuid
+  submissionVersionId String   @map("submission_version_id") @db.Uuid
+  aiReviewRunId       String?  @map("ai_review_run_id") @db.Uuid
+  criterionCode        String   @map("criterion_code")
+  commentMarkdown      String   @map("comment_markdown") @db.Text
+  commentJson          Json?    @map("comment_json")
+  teacherEditRequired  Boolean  @default(true) @map("teacher_edit_required")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  submissionVersion    SubmissionVersion @relation(fields: [submissionVersionId], references: [id])
+  aiReviewRun          AIReviewRun?      @relation(fields: [aiReviewRunId], references: [id])
+
+  @@index([submissionVersionId])
+  @@map("teacher_comment_drafts")
+}
+
+// -----------------------------------------------------------------------------
+// Final Package — Future-Oriented but Included for Extensibility
+// -----------------------------------------------------------------------------
+
+model FinalPackage {
+  id            String             @id @default(uuid()) @db.Uuid
+  studentId      String             @map("student_id") @db.Uuid
+  classId        String             @map("class_id") @db.Uuid
+  status         FinalPackageStatus @default(incomplete)
+  exportedAt     DateTime?          @map("exported_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  student        User               @relation(fields: [studentId], references: [id])
+  class          Class              @relation(fields: [classId], references: [id])
+  items          FinalPackageItem[]
+
+  @@unique([studentId, classId])
+  @@index([classId])
+  @@map("final_packages")
+}
+
+model FinalPackageItem {
+  id                  String   @id @default(uuid()) @db.Uuid
+  finalPackageId       String   @map("final_package_id") @db.Uuid
+  submissionVersionId  String   @map("submission_version_id") @db.Uuid
+  itemType             String   @map("item_type")
+  sortOrder            Int      @map("sort_order")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  finalPackage         FinalPackage      @relation(fields: [finalPackageId], references: [id])
+  submissionVersion    SubmissionVersion @relation(fields: [submissionVersionId], references: [id])
+
+  @@unique([finalPackageId, submissionVersionId])
+  @@index([submissionVersionId])
+  @@map("final_package_items")
+}
+
+// -----------------------------------------------------------------------------
+// Audit Log
+// -----------------------------------------------------------------------------
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorId     String?  @map("actor_id") @db.Uuid
+  actorRole   String?  @map("actor_role")
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  action      String
+  fromState   String?  @map("from_state")
+  toState     String?  @map("to_state")
+  reason      String?  @db.Text
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  actor       User?    @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// -----------------------------------------------------------------------------
+// Implementation Notes
+// -----------------------------------------------------------------------------
+//
+// 1. Do not let AIReviewRun directly change SubmissionVersion.status.
+// 2. FeedbackSnapshot.status controls feedback visibility.
+// 3. SubmissionStatus controls workflow only.
+// 4. Submitted versions should be immutable at application level.
+// 5. Use database transactions for:
+//    - draft -> submitted
+//    - submitted -> under_review
+//    - under_review -> revision_needed
+//    - under_review -> passed
+//    - final_submitted -> locked
+// 6. Use AuditLog for every important state transition.
+// 7. Keep JSON fields flexible during MVP; normalize later only when patterns stabilize.
+// 8. FinalPackage is future-facing and can be omitted from MVP implementation if needed.

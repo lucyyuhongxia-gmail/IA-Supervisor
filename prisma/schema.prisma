@@ -1,0 +1,477 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  teacher
+  student
+  admin
+}
+
+enum SubmissionStatus {
+  not_started
+  draft
+  submitted
+  under_review
+  revision_needed
+  passed
+  final_submitted
+  locked
+}
+
+enum AIReviewRunStatus {
+  pending
+  completed
+  failed
+}
+
+enum AIReviewFindingType {
+  strength
+  concern
+  suggestion
+}
+
+enum SemanticExtractionStatus {
+  generated
+  teacher_confirmed
+  student_confirmed
+  failed
+}
+
+enum ConsistencyCheckStatus {
+  met
+  partial
+  missing
+  insufficient_evidence
+}
+
+enum ConsistencyCheckSeverity {
+  info
+  warning
+  critical
+}
+
+enum FeedbackSnapshotStatus {
+  draft
+  approved
+  sent
+  superseded
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         UserRole
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  taughtClasses                Class[]              @relation("TeacherClasses")
+  enrollments                  Enrollment[]
+  fileAssets                   FileAsset[]          @relation("FileOwner")
+  aiReviewRuns                 AIReviewRun[]        @relation("AIReviewRequestedBy")
+  auditLogs                    AuditLog[]           @relation("AuditLogActor")
+  confirmedSemanticExtractions SemanticExtraction[] @relation("SemanticExtractionConfirmedBy")
+  consistencyChecks            ConsistencyCheck[]   @relation("ConsistencyCheckRequestedBy")
+  feedbackSnapshots            FeedbackSnapshot[]   @relation("FeedbackSnapshotCreatedBy")
+  markingSnapshots             MarkingSnapshot[]    @relation("MarkingSnapshotRequestedBy")
+
+  @@map("users")
+}
+
+model Subject {
+  id                          String   @id @default(cuid())
+  name                        String
+  slug                        String   @unique
+  activeAssessmentReferenceId String?  @map("active_assessment_reference_id")
+  createdAt                   DateTime @default(now()) @map("created_at")
+  updatedAt                   DateTime @updatedAt @map("updated_at")
+
+  classes                   Class[]
+  criteria                  CriterionDef[]
+  activeAssessmentReference AssessmentReference?  @relation("SubjectActiveAssessmentReference", fields: [activeAssessmentReferenceId], references: [id], onDelete: SetNull)
+  assessmentReferences      AssessmentReference[] @relation("SubjectAssessmentReferences")
+
+  @@index([activeAssessmentReferenceId])
+  @@map("subjects")
+}
+
+model AssessmentReference {
+  id          String   @id @default(cuid())
+  subjectId   String   @map("subject_id")
+  key         String   @unique
+  title       String
+  description String?
+  isArchived  Boolean  @default(false) @map("is_archived")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  subject           Subject                   @relation("SubjectAssessmentReferences", fields: [subjectId], references: [id], onDelete: Cascade)
+  activeForSubjects Subject[]                 @relation("SubjectActiveAssessmentReference")
+  files             AssessmentReferenceFile[]
+
+  @@index([subjectId])
+  @@map("assessment_references")
+}
+
+model AssessmentReferenceFile {
+  id                    String   @id @default(cuid())
+  assessmentReferenceId String   @map("assessment_reference_id")
+  fileName              String   @map("file_name")
+  label                 String
+  storagePath           String   @map("storage_path")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  assessmentReference AssessmentReference @relation(fields: [assessmentReferenceId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentReferenceId, fileName])
+  @@index([assessmentReferenceId])
+  @@map("assessment_reference_files")
+}
+
+model CriterionDef {
+  id          String   @id @default(cuid())
+  subjectId   String   @map("subject_id")
+  code        String
+  title       String
+  description String?
+  maxMarks    Int      @map("max_marks")
+  sortOrder   Int      @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  subject                 Subject              @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  submissionSlots         SubmissionSlot[]
+  milestones              Milestone[]
+  aiReviewRuns            AIReviewRun[]
+  semanticExtractions     SemanticExtraction[]
+  sourceConsistencyChecks ConsistencyCheck[]   @relation("ConsistencyCheckSourceCriterion")
+  targetConsistencyChecks ConsistencyCheck[]   @relation("ConsistencyCheckTargetCriterion")
+  markingSnapshots        MarkingSnapshot[]
+
+  @@unique([subjectId, code])
+  @@index([subjectId])
+  @@map("criterion_defs")
+}
+
+model Class {
+  id          String   @id @default(cuid())
+  name        String
+  examSession String   @map("exam_session")
+  inviteCode  String   @unique @map("invite_code")
+  isArchived  Boolean  @default(false) @map("is_archived")
+  subjectId   String   @map("subject_id")
+  teacherId   String   @map("teacher_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  subject           Subject            @relation(fields: [subjectId], references: [id])
+  teacher           User               @relation("TeacherClasses", fields: [teacherId], references: [id])
+  enrollments       Enrollment[]
+  milestones        Milestone[]
+  consistencyChecks ConsistencyCheck[]
+
+  @@index([subjectId])
+  @@index([teacherId])
+  @@map("classes")
+}
+
+model Enrollment {
+  id         String   @id @default(cuid())
+  studentId  String   @map("student_id")
+  classId    String   @map("class_id")
+  enrolledAt DateTime @default(now()) @map("enrolled_at")
+
+  student           User               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class             Class              @relation(fields: [classId], references: [id], onDelete: Cascade)
+  submissionSlots   SubmissionSlot[]
+  consistencyChecks ConsistencyCheck[]
+
+  @@unique([studentId, classId])
+  @@index([classId])
+  @@map("enrollments")
+}
+
+model SubmissionSlot {
+  id              String           @id @default(cuid())
+  enrollmentId    String           @map("enrollment_id")
+  criterionId     String           @map("criterion_id")
+  latestVersionId String?          @unique @map("latest_version_id")
+  status          SubmissionStatus @default(not_started)
+  draftTitle      String?          @map("draft_title")
+  artifactUrl     String?          @map("artifact_url")
+  notes           String?
+  teacherFeedback String?          @map("teacher_feedback")
+  reviewedAt      DateTime?        @map("reviewed_at")
+  submittedAt     DateTime?        @map("submitted_at")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  enrollment          Enrollment           @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  criterion           CriterionDef         @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  fileAssets          FileAsset[]
+  versions            SubmissionVersion[]  @relation("SlotSubmissionVersions")
+  latestVersion       SubmissionVersion?   @relation("LatestSubmissionVersion", fields: [latestVersionId], references: [id], onDelete: SetNull)
+  aiReviewRuns        AIReviewRun[]
+  semanticExtractions SemanticExtraction[]
+  feedbackSnapshots   FeedbackSnapshot[]
+  markingSnapshots    MarkingSnapshot[]
+
+  @@unique([enrollmentId, criterionId])
+  @@index([criterionId])
+  @@map("submission_slots")
+}
+
+model SubmissionVersion {
+  id               String    @id @default(cuid())
+  submissionSlotId String    @map("submission_slot_id")
+  versionNumber    Int       @map("version_number")
+  draftTitle       String?   @map("draft_title")
+  notes            String?
+  teacherFeedback  String?   @map("teacher_feedback")
+  reviewedAt       DateTime? @map("reviewed_at")
+  submittedAt      DateTime  @default(now()) @map("submitted_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  submissionSlot      SubmissionSlot       @relation("SlotSubmissionVersions", fields: [submissionSlotId], references: [id], onDelete: Cascade)
+  latestForSlot       SubmissionSlot?      @relation("LatestSubmissionVersion")
+  fileAssets          FileAsset[]
+  aiReviewRuns        AIReviewRun[]
+  semanticExtractions SemanticExtraction[]
+  feedbackSnapshots   FeedbackSnapshot[]
+  markingSnapshots    MarkingSnapshot[]
+
+  @@unique([submissionSlotId, versionNumber])
+  @@index([submissionSlotId])
+  @@map("submission_versions")
+}
+
+model FileAsset {
+  id                  String   @id @default(cuid())
+  submissionSlotId    String?  @map("submission_slot_id")
+  submissionVersionId String?  @map("submission_version_id")
+  ownerId             String   @map("owner_id")
+  originalName        String   @map("original_name")
+  storedName          String   @map("stored_name")
+  storagePath         String   @map("storage_path")
+  mimeType            String   @map("mime_type")
+  sizeBytes           Int      @map("size_bytes")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  submissionSlot    SubmissionSlot?    @relation(fields: [submissionSlotId], references: [id], onDelete: Cascade)
+  submissionVersion SubmissionVersion? @relation(fields: [submissionVersionId], references: [id], onDelete: Cascade)
+  owner             User               @relation("FileOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([submissionSlotId])
+  @@index([submissionVersionId])
+  @@index([ownerId])
+  @@map("file_assets")
+}
+
+model Milestone {
+  id          String    @id @default(cuid())
+  classId     String    @map("class_id")
+  criterionId String?   @map("criterion_id")
+  title       String
+  dueDate     DateTime? @map("due_date")
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  class     Class         @relation(fields: [classId], references: [id], onDelete: Cascade)
+  criterion CriterionDef? @relation(fields: [criterionId], references: [id], onDelete: SetNull)
+
+  @@index([classId])
+  @@index([criterionId])
+  @@map("milestones")
+}
+
+model AIReviewRun {
+  id                  String            @id @default(cuid())
+  submissionSlotId    String            @map("submission_slot_id")
+  submissionVersionId String?           @map("submission_version_id")
+  criterionId         String            @map("criterion_id")
+  requestedById       String            @map("requested_by_id")
+  status              AIReviewRunStatus @default(pending)
+  provider            String
+  modelName           String?           @map("model_name")
+  referenceKey        String            @default("ib-cs-ia-2027") @map("reference_key")
+  summary             String?           @db.Text
+  confidence          String?
+  errorMessage        String?           @map("error_message") @db.Text
+  rawResponse         Json?             @map("raw_response")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  submissionSlot    SubmissionSlot     @relation(fields: [submissionSlotId], references: [id], onDelete: Cascade)
+  submissionVersion SubmissionVersion? @relation(fields: [submissionVersionId], references: [id], onDelete: SetNull)
+  criterion         CriterionDef       @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  requestedBy       User               @relation("AIReviewRequestedBy", fields: [requestedById], references: [id], onDelete: Cascade)
+  findings          AIReviewFinding[]
+  feedbackSnapshots FeedbackSnapshot[]
+  markingSnapshots  MarkingSnapshot[]
+
+  @@index([submissionSlotId])
+  @@index([submissionVersionId])
+  @@index([criterionId])
+  @@index([requestedById])
+  @@map("ai_review_runs")
+}
+
+model AIReviewFinding {
+  id            String              @id @default(cuid())
+  aiReviewRunId String              @map("ai_review_run_id")
+  type          AIReviewFindingType
+  text          String              @db.Text
+  sortOrder     Int                 @default(0) @map("sort_order")
+  createdAt     DateTime            @default(now()) @map("created_at")
+
+  aiReviewRun AIReviewRun @relation(fields: [aiReviewRunId], references: [id], onDelete: Cascade)
+
+  @@index([aiReviewRunId])
+  @@map("ai_review_findings")
+}
+
+model SemanticExtraction {
+  id                   String                   @id @default(cuid())
+  submissionSlotId     String                   @map("submission_slot_id")
+  submissionVersionId  String                   @map("submission_version_id")
+  criterionId          String                   @map("criterion_id")
+  status               SemanticExtractionStatus @default(generated)
+  confidence           String?
+  extractedJson        Json                     @map("extracted_json")
+  sourceCharacterCount Int                      @default(0) @map("source_character_count")
+  message              String?                  @db.Text
+  confirmedAt          DateTime?                @map("confirmed_at")
+  confirmedById        String?                  @map("confirmed_by_id")
+  createdAt            DateTime                 @default(now()) @map("created_at")
+  updatedAt            DateTime                 @updatedAt @map("updated_at")
+
+  submissionSlot    SubmissionSlot    @relation(fields: [submissionSlotId], references: [id], onDelete: Cascade)
+  submissionVersion SubmissionVersion @relation(fields: [submissionVersionId], references: [id], onDelete: Cascade)
+  criterion         CriterionDef      @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  confirmedBy       User?             @relation("SemanticExtractionConfirmedBy", fields: [confirmedById], references: [id], onDelete: SetNull)
+
+  @@unique([submissionVersionId, criterionId])
+  @@index([submissionSlotId])
+  @@index([criterionId])
+  @@index([confirmedById])
+  @@map("semantic_extractions")
+}
+
+model ConsistencyCheck {
+  id                String                   @id @default(cuid())
+  runId             String                   @map("run_id")
+  classId           String                   @map("class_id")
+  enrollmentId      String                   @map("enrollment_id")
+  sourceCriterionId String?                  @map("source_criterion_id")
+  targetCriterionId String?                  @map("target_criterion_id")
+  requestedById     String                   @map("requested_by_id")
+  checkType         String                   @map("check_type")
+  status            ConsistencyCheckStatus
+  severity          ConsistencyCheckSeverity
+  summary           String                   @db.Text
+  evidenceJson      Json?                    @map("evidence_json")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+
+  class           Class         @relation(fields: [classId], references: [id], onDelete: Cascade)
+  enrollment      Enrollment    @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  sourceCriterion CriterionDef? @relation("ConsistencyCheckSourceCriterion", fields: [sourceCriterionId], references: [id], onDelete: SetNull)
+  targetCriterion CriterionDef? @relation("ConsistencyCheckTargetCriterion", fields: [targetCriterionId], references: [id], onDelete: SetNull)
+  requestedBy     User          @relation("ConsistencyCheckRequestedBy", fields: [requestedById], references: [id], onDelete: Cascade)
+
+  @@index([classId])
+  @@index([enrollmentId])
+  @@index([runId])
+  @@index([requestedById])
+  @@index([sourceCriterionId])
+  @@index([targetCriterionId])
+  @@map("consistency_checks")
+}
+
+model FeedbackSnapshot {
+  id                  String                 @id @default(cuid())
+  submissionSlotId    String                 @map("submission_slot_id")
+  submissionVersionId String                 @map("submission_version_id")
+  createdById         String                 @map("created_by_id")
+  sourceAIReviewRunId String?                @map("source_ai_review_run_id")
+  status              FeedbackSnapshotStatus @default(draft)
+  content             String                 @db.Text
+  approvedAt          DateTime?              @map("approved_at")
+  sentAt              DateTime?              @map("sent_at")
+  createdAt           DateTime               @default(now()) @map("created_at")
+  updatedAt           DateTime               @updatedAt @map("updated_at")
+
+  submissionSlot    SubmissionSlot    @relation(fields: [submissionSlotId], references: [id], onDelete: Cascade)
+  submissionVersion SubmissionVersion @relation(fields: [submissionVersionId], references: [id], onDelete: Cascade)
+  createdBy         User              @relation("FeedbackSnapshotCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  sourceAIReviewRun AIReviewRun?      @relation(fields: [sourceAIReviewRunId], references: [id], onDelete: SetNull)
+
+  @@index([submissionSlotId])
+  @@index([submissionVersionId])
+  @@index([createdById])
+  @@index([sourceAIReviewRunId])
+  @@index([status])
+  @@map("feedback_snapshots")
+}
+
+model MarkingSnapshot {
+  id                     String    @id @default(cuid())
+  submissionSlotId       String    @map("submission_slot_id")
+  submissionVersionId    String    @map("submission_version_id")
+  criterionId            String    @map("criterion_id")
+  requestedById          String    @map("requested_by_id")
+  sourceAIReviewRunId    String?   @map("source_ai_review_run_id")
+  suggestedMarkMin       Int       @map("suggested_mark_min")
+  suggestedMarkMax       Int       @map("suggested_mark_max")
+  suggestedSingleMark    Int?      @map("suggested_single_mark")
+  confidence             String
+  rationale              String    @db.Text
+  descriptorEvidenceJson Json      @map("descriptor_evidence_json")
+  teacherFinalMark       Int?      @map("teacher_final_mark")
+  teacherFinalComment    String?   @map("teacher_final_comment") @db.Text
+  finalMarkedAt          DateTime? @map("final_marked_at")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  submissionSlot    SubmissionSlot    @relation(fields: [submissionSlotId], references: [id], onDelete: Cascade)
+  submissionVersion SubmissionVersion @relation(fields: [submissionVersionId], references: [id], onDelete: Cascade)
+  criterion         CriterionDef      @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  requestedBy       User              @relation("MarkingSnapshotRequestedBy", fields: [requestedById], references: [id], onDelete: Cascade)
+  sourceAIReviewRun AIReviewRun?      @relation(fields: [sourceAIReviewRunId], references: [id], onDelete: SetNull)
+
+  @@index([submissionSlotId])
+  @@index([submissionVersionId])
+  @@index([criterionId])
+  @@index([requestedById])
+  @@index([sourceAIReviewRunId])
+  @@map("marking_snapshots")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String   @map("actor_id")
+  actorRole  UserRole @map("actor_role")
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  action     String
+  fromState  String?  @map("from_state")
+  toState    String?  @map("to_state")
+  reason     String?  @db.Text
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  actor User @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@map("audit_logs")
+}
