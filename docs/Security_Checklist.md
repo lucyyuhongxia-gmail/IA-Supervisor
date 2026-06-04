@@ -1,6 +1,6 @@
 # IA Supervisor Security Checklist
 
-Last updated: 2026-05-25
+Last updated: 2026-06-04
 
 This checklist summarizes the current MVP security posture. It is not a penetration test, but it documents the
 authorization and audit controls currently implemented before adding more production features.
@@ -84,6 +84,17 @@ The following actions are recorded in `AuditLog`:
   - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
   - `Strict-Transport-Security` on HTTPS requests
 - Authenticated PDF previews use same-origin iframe embedding only; cross-origin framing remains blocked.
+
+## Environment And Repository Hygiene
+
+- `.env` and `.env.local` are ignored by git.
+- `uploads/*` is ignored by git, with only `uploads/.gitkeep` tracked.
+- `node_modules`, `.next`, logs, coverage, and build output are ignored by git.
+- `.env.example` contains placeholders only and no real API keys.
+- README documents DeepSeek configuration with placeholder values only.
+- Repository scan on 2026-06-04 found no committed DeepSeek-style `sk-...` API keys. Matches were limited to expected
+  local demo account credentials in README, seed, reset scripts, and login placeholder text.
+- `npm run demo:reset` refuses to run unless `DATABASE_URL` points to `localhost`, `127.0.0.1`, or `::1`.
 
 ## Remaining Risks / Deferred Production Work
 

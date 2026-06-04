@@ -279,5 +279,6 @@ uploads/
 ## Documentation
 
 - Current implementation and backlog: `docs/Implementation_Status_2026-05-22.md`
+- MVP1.0 release notes: `docs/releases/MVP1.0.md`
 - Security checklist: `docs/Security_Checklist.md`
 - Assessment reference: `docs/assessment/ib-cs-ia-2027/`
