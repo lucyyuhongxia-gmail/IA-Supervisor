@@ -389,7 +389,7 @@ function getPrimaryFindings(findings: AIReviewRunView["findings"]) {
 function buildFeedbackDraft(run: AIReviewRunView) {
   const sections = [
     run.summary
-      ? `AI review summary:\n${truncateText(run.summary, 450)}`
+      ? `## AI review summary\n${truncateText(run.summary, 450)}`
       : null,
     formatFindingSection("Strengths", run.findings, "strength", 2),
     formatFindingSection("Concerns", run.findings, "concern", 2),
@@ -401,7 +401,7 @@ function buildFeedbackDraft(run: AIReviewRunView) {
 
 function buildSummaryFeedbackDraft(run: AIReviewRunView) {
   return run.summary
-    ? `AI review summary:\n${truncateText(run.summary, 700)}`
+    ? `## AI review summary\n${truncateText(run.summary, 700)}`
     : "";
 }
 
@@ -427,7 +427,7 @@ function formatFindingSection(
     return null;
   }
 
-  return `${title}:\n${matchingFindings
+  return `## ${title}\n${matchingFindings
     .map((finding) => `- ${truncateText(finding.text, 320)}`)
     .join("\n")}`;
 }

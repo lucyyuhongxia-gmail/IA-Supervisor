@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 type FeedbackDisplayProps = {
   content: string;
   className?: string;
@@ -7,6 +9,10 @@ type FeedbackSection = {
   title: string | null;
   lines: string[];
 };
+
+type FeedbackBlock =
+  | { type: "paragraph"; text: string }
+  | { type: "list"; listType: "ordered" | "unordered"; items: string[] };
 
 const sectionHeadings = new Set([
   "ai review summary",
@@ -24,15 +30,19 @@ export function FeedbackDisplay({ content, className = "" }: FeedbackDisplayProp
   const sections = parseFeedbackSections(content);
 
   return (
-    <div className={`grid gap-4 text-sm leading-6 ${className}`}>
+    <div className={`grid gap-5 text-sm leading-7 ${className}`}>
       {sections.map((section, index) => (
         <section
           key={`${section.title ?? "section"}-${index}`}
-          className={section.title ? `rounded-md border p-3 ${getSectionTone(section.title)}` : ""}
+          className={
+            section.title
+              ? `break-inside-avoid rounded-md border p-4 print:bg-white ${getSectionTone(section.title)}`
+              : ""
+          }
         >
           {section.title ? (
-            <p className="text-xs font-semibold uppercase tracking-normal">
-              {section.title}
+            <p className="text-sm font-semibold tracking-normal">
+              {formatSectionTitle(section.title)}
             </p>
           ) : null}
           <FeedbackLines lines={section.lines} hasTitle={Boolean(section.title)} />
@@ -55,18 +65,26 @@ function FeedbackLines({
     <div className={`grid gap-3 ${hasTitle ? "mt-2" : ""}`}>
       {blocks.map((block, index) => {
         if (block.type === "list") {
+          const ListTag = block.listType === "ordered" ? "ol" : "ul";
+          const listClassName =
+            block.listType === "ordered"
+              ? "grid list-decimal gap-2 pl-5"
+              : "grid list-disc gap-2 pl-5";
+
           return (
-            <ul key={index} className="grid list-disc gap-2 pl-5">
+            <ListTag key={index} className={listClassName}>
               {block.items.map((item, itemIndex) => (
-                <li key={itemIndex}>{item}</li>
+                <li key={itemIndex}>
+                  <MarkdownInline text={item} />
+                </li>
               ))}
-            </ul>
+            </ListTag>
           );
         }
 
         return (
           <p key={index} className="whitespace-pre-wrap">
-            {block.text}
+            <MarkdownInline text={block.text} />
           </p>
         );
       })}
@@ -105,36 +123,47 @@ function parseFeedbackSections(content: string) {
 
 function getSectionHeading(line: string) {
   const trimmed = line.trim();
+  const markdownHeading = trimmed.match(/^#{1,6}\s+(.+)$/);
+  const headingCandidate = cleanHeadingText(markdownHeading?.[1] ?? trimmed);
 
-  if (!trimmed.endsWith(":")) {
-    return null;
+  if (sectionHeadings.has(headingCandidate.toLowerCase())) {
+    return headingCandidate;
   }
 
-  const heading = trimmed.slice(0, -1).trim();
-
-  return sectionHeadings.has(heading.toLowerCase()) ? heading : null;
+  return null;
 }
 
 function groupLines(lines: string[]) {
-  const blocks: Array<
-    | { type: "paragraph"; text: string }
-    | { type: "list"; items: string[] }
-  > = [];
+  const blocks: FeedbackBlock[] = [];
   let paragraph: string[] = [];
   let listItems: string[] = [];
+  let listType: "ordered" | "unordered" | null = null;
 
   function flushParagraph() {
     if (paragraph.length > 0) {
-      blocks.push({ type: "paragraph", text: paragraph.join("\n").trim() });
+      blocks.push({
+        type: "paragraph",
+        text: paragraph.join(" ").replace(/\s+/g, " ").trim(),
+      });
       paragraph = [];
     }
   }
 
   function flushList() {
-    if (listItems.length > 0) {
-      blocks.push({ type: "list", items: listItems });
+    if (listItems.length > 0 && listType) {
+      blocks.push({ type: "list", listType, items: listItems });
       listItems = [];
+      listType = null;
     }
+  }
+
+  function addListItem(type: "ordered" | "unordered", item: string) {
+    if (listType && listType !== type) {
+      flushList();
+    }
+
+    listType = type;
+    listItems.push(item);
   }
 
   for (const line of lines) {
@@ -146,9 +175,18 @@ function groupLines(lines: string[]) {
       continue;
     }
 
-    if (trimmed.startsWith("- ")) {
+    const unorderedBullet = trimmed.match(/^[-*•]\s+(.+)$/);
+    const orderedBullet = trimmed.match(/^\d+\.\s+(.+)$/);
+
+    if (unorderedBullet) {
       flushParagraph();
-      listItems.push(trimmed.slice(2).trim());
+      addListItem("unordered", unorderedBullet[1].trim());
+      continue;
+    }
+
+    if (orderedBullet) {
+      flushParagraph();
+      addListItem("ordered", orderedBullet[1].trim());
       continue;
     }
 
@@ -160,6 +198,50 @@ function groupLines(lines: string[]) {
   flushList();
 
   return blocks;
+}
+
+function MarkdownInline({ text }: { text: string }) {
+  const parts = text.split(/(\*\*[^*]+\*\*|__[^_]+__)/g);
+
+  return (
+    <>
+      {parts.map((part, index): ReactNode => {
+        const boldText =
+          part.startsWith("**") && part.endsWith("**")
+            ? part.slice(2, -2)
+            : part.startsWith("__") && part.endsWith("__")
+              ? part.slice(2, -2)
+              : null;
+
+        if (boldText) {
+          return (
+            <strong key={index} className="font-semibold">
+              {boldText}
+            </strong>
+          );
+        }
+
+        return part;
+      })}
+    </>
+  );
+}
+
+function cleanHeadingText(value: string) {
+  return value
+    .replace(/^\*\*/, "")
+    .replace(/\*\*$/, "")
+    .replace(/^__/, "")
+    .replace(/__$/, "")
+    .replace(/:$/, "")
+    .trim();
+}
+
+function formatSectionTitle(title: string) {
+  return title
+    .split(/\s+/)
+    .map((word) => (word.length <= 2 ? word.toUpperCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()))
+    .join(" ");
 }
 
 function getSectionTone(title: string) {

@@ -90,7 +90,20 @@ export default async function StudentFeedbackPrintPage({
   const reviewedAt = latestVersion?.reviewedAt ?? slot.reviewedAt;
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-6 bg-background px-6 py-8 print:min-h-0 print:max-w-none print:px-0 print:py-0">
+    <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-6 bg-background px-6 py-8 print:min-h-0 print:max-w-none print:bg-white print:px-8 print:py-6 print:text-black">
+      <style>{`
+        @page {
+          size: A4;
+          margin: 16mm;
+        }
+
+        @media print {
+          html,
+          body {
+            background: white !important;
+          }
+        }
+      `}</style>
       <section className="flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between">
         <Button asChild variant="ghost" size="sm" className="-ml-3">
           <Link href={`/student/classes/${classRecord.id}/criteria/${criterion.id}`}>
@@ -100,7 +113,7 @@ export default async function StudentFeedbackPrintPage({
         <PrintButton label="Print / save as PDF" />
       </section>
 
-      <article className="rounded-md border bg-card p-6 print:border-0 print:p-0">
+      <article className="rounded-md border bg-card p-6 print:border-0 print:bg-white print:p-0">
         <header className="border-b pb-4">
           <p className="text-sm font-medium text-muted-foreground">
             IA Supervisor feedback
