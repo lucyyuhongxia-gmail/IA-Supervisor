@@ -1,18 +1,28 @@
 # IA Supervisor
 
-MVP foundation for IA Supervisor: Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui-compatible components, Prisma, PostgreSQL, Docker Compose, NextAuth Credentials, class creation, invite-code enrollment, seeded IB CS criteria, milestones, teacher/student dashboards, criterion-level submission slots, local PDF upload, semantic extraction, cross-criterion consistency review, delta review, marking assistant, teacher feedback snapshots, submission version history, audit logs, final submission locking, admin-managed assessment references, class analytics, teacher final reports, ZIP final package export, and an AI review assistant foundation.
+IA Supervisor is a teacher-led IB Computer Science IA supervision workspace.
 
-Automated final grading is intentionally not implemented. AI review remains advisory and teacher judgement remains final.
+The current MVP supports class setup, invite-code enrollment, criterion-level PDF submissions, teacher review, AI-assisted draft feedback, student-visible feedback, printable feedback, milestones, analytics, audit logs, final reports, and final package export.
+
+AI review is advisory only. Teacher judgement remains final.
+
+## Current Version
+
+- Stable tag: `v1.0`
+- Current main includes v1.1 feedback-loop polish after `v1.0`.
+- Assessment standard: IB Computer Science IA 2027.
+- Supported student submission file type: PDF only.
 
 ## Stack
 
 - Next.js App Router
 - TypeScript
 - Tailwind CSS
-- shadcn/ui component conventions
+- shadcn/ui-style local components
 - Prisma
 - PostgreSQL 16 through Docker Compose
-- NextAuth Credentials provider
+- NextAuth Credentials
+- DeepSeek/OpenAI-compatible chat completions for AI review
 
 ## Local Setup
 
@@ -28,17 +38,13 @@ Automated final grading is intentionally not implemented. AI review remains advi
    cp .env.example .env
    ```
 
-   Replace `NEXTAUTH_SECRET` with a long random value before using real accounts.
-   Set `TEACHER_SIGNUP_CODE` to a private code that only teachers should know.
-   Keep `AI_REVIEW_PROVIDER="mock"` for local AI review workflow testing without an API key.
+   Required local values:
 
-   To use DeepSeek for real AI review, set:
-
-   ```bash
-   AI_REVIEW_PROVIDER="deepseek"
-   DEEPSEEK_API_KEY="your-deepseek-api-key"
-   DEEPSEEK_BASE_URL="https://api.deepseek.com"
-   DEEPSEEK_MODEL="deepseek-chat"
+   ```env
+   DATABASE_URL="postgresql://ia_supervisor:ia_supervisor@localhost:5432/ia_supervisor?schema=public"
+   NEXTAUTH_URL="http://localhost:3000"
+   NEXTAUTH_SECRET="replace-with-a-long-random-secret"
+   TEACHER_SIGNUP_CODE="replace-with-a-private-teacher-code"
    ```
 
 3. Start PostgreSQL:
@@ -50,30 +56,30 @@ Automated final grading is intentionally not implemented. AI review remains advi
 4. Create the database schema:
 
    ```bash
-   npx prisma migrate dev --name init
+   npx prisma migrate dev
    ```
 
-5. Seed IB Computer Science criteria and demo users:
+5. Seed reference data and demo users:
 
    ```bash
    npx prisma db seed
    ```
 
-   To reset a local demo database and create a clean Lucy teacher class:
+6. Optional: reset the local demo database:
 
    ```bash
    npm run demo:reset
    ```
 
-   This command refuses to run unless `DATABASE_URL` points at `localhost`, `127.0.0.1`, or `::1`. It clears workflow data, removes local uploaded files except `uploads/.gitkeep`, recreates demo users, creates `IB CS IA Demo`, enrolls `student@example.com`, and sets the class invite code to `LUCYIA`.
+   This command only runs against local database URLs. It clears workflow data, removes local uploads except `uploads/.gitkeep`, recreates demo users, creates a demo class, enrolls a demo student, and creates a fixed class invite code.
 
-6. Start the app:
+7. Start the app:
 
    ```bash
    npm run dev
    ```
 
-7. Open the app:
+8. Open:
 
    - Login: [http://localhost:3000/login](http://localhost:3000/login)
    - Register: [http://localhost:3000/register](http://localhost:3000/register)
@@ -83,11 +89,153 @@ Automated final grading is intentionally not implemented. AI review remains advi
 
 ## Demo Accounts
 
-The seed script creates these accounts with password `password123`:
+The seed script creates:
 
-- `teacher@example.com`
-- `student@example.com`
-- `admin@example.com`
+| Role | Email | Password |
+| --- | --- | --- |
+| Teacher | `teacher@example.com` | `password123` |
+| Student | `student@example.com` | `password123` |
+| Admin | `admin@example.com` | `password123` |
+
+Local demo reset may also create project-specific demo users used during development.
+
+## AI Review Configuration
+
+For local workflow testing without an API key:
+
+```env
+AI_REVIEW_PROVIDER="mock"
+DEEPSEEK_API_KEY=""
+DEEPSEEK_BASE_URL="https://api.deepseek.com"
+DEEPSEEK_MODEL="deepseek-chat"
+```
+
+For real DeepSeek review:
+
+```env
+AI_REVIEW_PROVIDER="deepseek"
+DEEPSEEK_API_KEY="your-deepseek-api-key"
+DEEPSEEK_BASE_URL="https://api.deepseek.com"
+DEEPSEEK_MODEL="deepseek-chat"
+```
+
+Use the model name supported by your DeepSeek account, for example `deepseek-chat` or another compatible model configured for your API key.
+
+AI review uses the local assessment reference files in:
+
+```text
+docs/assessment/ib-cs-ia-2027/
+  criteria.md
+  rubric.md
+  prompt-guidance.md
+```
+
+The AI review prompt is locked to the IB Computer Science IA 2027 assessment reference. It asks for evidence-grounded, criterion-specific feedback and a Markdown-ready `studentFeedbackDraft`.
+
+## Teacher Workflow
+
+1. Sign in as a teacher.
+2. Create or select a class from `/teacher/dashboard`.
+3. Share the class invite code with students.
+4. Open a class to view enrolled students and criterion status.
+5. Open a student, then open a criterion review page.
+6. Check the uploaded PDF and extracted text status.
+7. Run AI review if the latest submitted PDF has readable text.
+8. Review AI summary, concerns, suggestions, rubric alignment, and evidence snippets.
+9. Use `Copy full draft`, `Copy concerns`, or `Copy suggestions` to move AI notes into the editable feedback box.
+10. Edit the feedback as the teacher.
+11. Set status:
+    - `Submitted` or `Under Review` saves a teacher-only draft.
+    - `Revision Needed` sends feedback to the student.
+    - `Passed` sends feedback and marks the criterion passed.
+12. Continue through the review queue or return to the dashboard.
+
+Teacher review pages also include collapsed advanced tools:
+
+- Semantic extraction
+- Delta review
+- Marking assistant
+- Feedback history
+- Version history
+- Audit history
+
+## Student Workflow
+
+1. Register or sign in as a student.
+2. Join a class using the invite code from the teacher.
+3. Open the class from `/student/dashboard`.
+4. Open one criterion at a time.
+5. Upload a readable PDF for that criterion.
+6. Submit the criterion.
+7. Wait for teacher review.
+8. If revision is needed, read teacher feedback, revise the PDF, and submit a new version.
+9. Use `Print feedback` to print or save teacher feedback as PDF.
+10. Final-submit the IA only after all criteria are passed.
+
+## Admin Workflow
+
+Admins can open `/admin/assessment` to edit active assessment reference files for the AI review system.
+
+The active reference is currently:
+
+```text
+IB Computer Science IA 2027
+```
+
+## Important Product Rules
+
+- Students can submit PDF files only.
+- Uploaded PDFs must contain readable text. Scanned or image-only PDFs are rejected.
+- File upload limit is 25 MB.
+- Every student submit creates an immutable `SubmissionVersion`.
+- Student notes are saved with the submitted version and cleared after submission.
+- Sent teacher feedback is stored as a `FeedbackSnapshot`.
+- New sent feedback supersedes older sent feedback for the same submission version.
+- Teacher feedback drafts are teacher-only until sent.
+- AI review never changes status, assigns marks, or sends feedback automatically.
+- Final marks are teacher-controlled and not automatically generated by AI.
+- Final-submitted criteria are locked from further student edits unless reopened by the teacher.
+- Uploaded files are stored locally in `uploads/` and served through authenticated `/api/files/[fileId]` routes.
+
+## AI Feedback Quality Checks
+
+Run the local evaluator against the latest AI review for a submission slot:
+
+```bash
+npm run ai-review:evaluate -- --slot-id <submissionSlotId>
+```
+
+Or against a specific AI review run:
+
+```bash
+npm run ai-review:evaluate -- --run-id <aiReviewRunId>
+```
+
+The evaluator checks:
+
+- completed review status
+- summary presence
+- evidence-grounded concerns and suggestions
+- issue / why it matters / revision guidance structure
+- 2027 syllabus alignment
+- rubric alignment evidence
+- no forbidden extraction contradiction
+- no mark or grade prediction
+- Markdown-ready student feedback draft headings
+- evidence / why-it-matters / action signals in student-facing feedback
+
+## Common Commands
+
+```bash
+npm run dev
+npm run build
+npm run lint
+npm run ai-review:evaluate -- --slot-id <submissionSlotId>
+npm run demo:reset
+npx prisma migrate dev
+npx prisma db seed
+npx prisma studio
+```
 
 ## Project Structure
 
@@ -96,76 +244,40 @@ app/
   (auth)/login/
   (auth)/register/
   api/auth/[...nextauth]/
+  api/files/[fileId]/
+  teacher/dashboard/
   teacher/classes/[classId]/
+  teacher/classes/[classId]/analytics/
+  teacher/classes/[classId]/students/[enrollmentId]/
+  teacher/classes/[classId]/students/[enrollmentId]/criteria/[criterionId]/
   teacher/classes/[classId]/students/[enrollmentId]/report/
+  student/dashboard/
   student/classes/[classId]/
   student/classes/[classId]/criteria/[criterionId]/
-  teacher/dashboard/
-  student/dashboard/
+  student/classes/[classId]/criteria/[criterionId]/feedback/
   admin/assessment/
 components/
-  navigation/
-  ui/
 lib/
 prisma/
 types/
+docs/
+uploads/
 ```
 
-## Roles
+## Current Limitations
 
-The Prisma schema defines three user roles:
+- AI review is a draft assistant, not an examiner decision.
+- AI review quality depends on PDF text extraction quality.
+- Student submissions are PDF-only.
+- The system does not perform online document editing.
+- The marking assistant is conservative and teacher-facing.
+- Final marks are not student-facing yet.
+- Local file storage is used; production deployment needs durable private storage.
+- Email notifications are not implemented.
+- Multi-school tenant isolation and production hardening are not complete.
 
-- `teacher`
-- `student`
-- `admin`
+## Documentation
 
-## Notes
-
-- The Credentials provider validates email/password against `User.passwordHash`.
-- Students can register publicly with a class invite code and are enrolled immediately.
-- Teachers can register only with `TEACHER_SIGNUP_CODE`.
-- Teachers can create classes from `/teacher/dashboard`.
-- Each class receives a unique invite code and default IA milestones.
-- Teachers can edit class milestones and link them to criteria.
-- Students can join a class from `/student/dashboard` with the invite code.
-- The seeded IB CS criteria are shown in each teacher class dashboard.
-- Students can open a class from `/student/classes/[classId]` and then submit each criterion from its own criterion page.
-- Students can see a completion status panel for the class, including passed count, waiting review count, revision count, final-submitted count, and reasons final submission is not yet available.
-- Students can upload PDF files up to 25 MB for each criterion slot.
-- Student PDF uploads must contain readable text; scanned/image-only PDFs are rejected before a submission version is created.
-- Teacher criterion review pages include an authenticated, same-origin inline PDF preview for uploaded PDF files.
-- Teachers can view each enrolled student's criterion status from `/teacher/classes/[classId]`.
-- Teachers can set review status and save feedback drafts or send student-visible feedback.
-- Teachers can insert built-in IB CS IA 2027 comment templates into feedback drafts by criterion.
-- Teachers can reopen a final-submitted criterion for revision with a required student-visible reason.
-- Feedback is stored as `FeedbackSnapshot` records with draft, sent, and superseded lifecycle states.
-- Submission, review, feedback, AI review, and final submission events are recorded in `AuditLog`.
-- Students can see teacher feedback from `/student/classes/[classId]` and resubmit when revision is needed.
-- Every student submit creates an immutable `SubmissionVersion` record.
-- Files are attached to submission versions, and teacher feedback is copied onto the latest reviewed version.
-- Semantic extraction records structured IA elements from submitted files and can be confirmed by teachers.
-- Teachers can run cross-criterion consistency review from the student detail page to check A-C, A-E, B-D, and C-D alignment.
-- Teachers can run delta review on a criterion review page to compare the latest version against the previous version's teacher feedback.
-- Delta review is teacher-facing only and flags possibly addressed, still-needs-review, and new/changed evidence items for manual verification.
-- Teachers can run a conservative marking assistant on a criterion review page. It suggests a mark range and evidence notes.
-- Teachers can save final marks and final comments on the latest marking snapshot. Final marks remain teacher-controlled and are not student-facing yet.
-- Teachers can view class-level final mark overview from the analytics page, including A-E marks, totals, missing marks, and final submission state.
-- Teachers can open a student final report from the student detail page. The report summarizes criterion status, latest files, sent feedback, final marks, consistency checks, recent audit events, and final package readiness checks.
-- Teachers can download a ZIP final package from the student final report when package readiness has no blocking issues.
-- The ZIP package includes latest A-E files plus report, audit, feedback, marks, consistency JSON summaries, and a manifest with SHA-256 checksums.
-- The student final report shows the latest package export record after a teacher downloads a ZIP.
-- Students can final-submit the IA after all criteria are passed. Final-submitted criteria are locked from further student edits.
-- Uploaded files are stored locally in `/uploads` and served through authenticated `/api/files/[fileId]` routes.
-- Teachers can run an AI review assistant on a single student criterion page. The AI review saves provider, model, summary, findings, and confidence.
-- AI review uses assessment references from `/docs/assessment/ib-cs-ia-2027`.
-- AI review extracts text from submitted PDF files before sending criterion-specific context to the configured provider.
-- AI review is blocked unless the latest criterion version has a readable PDF and a reviewable status.
-- AI review generation also refreshes semantic extraction for the latest submitted version.
-- AI review shows extraction status, evidence snippets, rubric alignment, and current/stale review state.
-- Teachers can copy AI review content into editable teacher feedback.
-- AI review does not change status, assign final marks, or replace teacher judgement.
-- AI review output quality can be checked locally with `npm run ai-review:evaluate`.
-- Admins can edit the IB CS IA 2027 assessment reference files from `/admin/assessment`.
-- Teachers can open class analytics from `/teacher/classes/[classId]/analytics`.
-- Current implementation status and designed-but-unbuilt backlog are tracked in `docs/Implementation_Status_2026-05-22.md`.
-- Current security posture and remaining production risks are tracked in `docs/Security_Checklist.md`.
+- Current implementation and backlog: `docs/Implementation_Status_2026-05-22.md`
+- Security checklist: `docs/Security_Checklist.md`
+- Assessment reference: `docs/assessment/ib-cs-ia-2027/`

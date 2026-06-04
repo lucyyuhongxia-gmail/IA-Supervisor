@@ -1,6 +1,6 @@
 # IA Supervisor Implementation Status
 
-Last updated: 2026-05-22
+Last updated: 2026-06-04
 
 This document compares the current application implementation with the original v1 design documents in `docs/`.
 The original `.docx` files should be treated as architecture references. This file is the current implementation
@@ -29,6 +29,8 @@ and backlog supplement.
 - Public student registration with class invite code.
 - Teacher registration gated by `TEACHER_SIGNUP_CODE`.
 - Global role-aware navigation, breadcrumbs, sign out, and teacher class switcher.
+- README now documents local setup, demo accounts, teacher/student/admin workflows, AI review configuration,
+  product rules, quality checks, current limitations, and common commands.
 
 ### Class And Enrollment Workflow
 
