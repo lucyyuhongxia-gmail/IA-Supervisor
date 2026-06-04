@@ -11,7 +11,7 @@ import { formatSubmissionStatus, teacherReviewStatuses } from "@/lib/submissions
 
 import { updateTeacherFeedbackAction } from "../../actions";
 
-const teacherFeedbackMaxLength = 4000;
+const teacherFeedbackMaxLength = 8000;
 
 type TeacherFeedbackFormProps = {
   classId: string;

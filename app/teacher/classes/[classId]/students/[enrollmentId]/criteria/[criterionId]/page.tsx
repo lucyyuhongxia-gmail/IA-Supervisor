@@ -137,15 +137,7 @@ export default async function TeacherCriterionReviewPage({
   const feedbackDraft = latestVersion?.feedbackSnapshots.find(
     (snapshot) => snapshot.status === "draft",
   );
-  const sentFeedback = latestVersion?.feedbackSnapshots.find(
-    (snapshot) => snapshot.status === "sent",
-  );
-  const feedback =
-    feedbackDraft?.content ??
-    sentFeedback?.content ??
-    latestVersion?.teacherFeedback ??
-    slot.teacherFeedback ??
-    "";
+  const feedback = feedbackDraft?.content ?? "";
   const reviewedAt = latestVersion?.reviewedAt ?? slot.reviewedAt;
   const reviewQueue = await getTeacherReviewQueue(user.id);
   const currentQueueIndex = reviewQueue.findIndex((item) => item.id === slot.id);

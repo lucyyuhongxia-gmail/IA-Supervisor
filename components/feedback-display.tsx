@@ -270,10 +270,23 @@ function cleanHeadingText(value: string) {
 }
 
 function formatSectionTitle(title: string) {
-  return title
-    .split(/\s+/)
-    .map((word) => (word.length <= 2 ? word.toUpperCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()))
-    .join(" ");
+  const normalizedTitle = title.toLowerCase();
+  const knownTitles: Record<string, string> = {
+    "ai review summary": "AI review summary",
+    summary: "Summary",
+    strengths: "Strengths",
+    concerns: "Concerns",
+    concern: "Concern",
+    suggestions: "Suggestions",
+    "suggested next steps": "Suggested next steps",
+    "next steps": "Next steps",
+    "what is working": "What is working",
+    "what to revise": "What to revise",
+    "next actions": "Next actions",
+    "teacher feedback": "Teacher feedback",
+  };
+
+  return knownTitles[normalizedTitle] ?? title;
 }
 
 function getSectionTone(title: string) {

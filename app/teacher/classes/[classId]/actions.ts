@@ -22,7 +22,7 @@ const updateTeacherFeedbackSchema = z.object({
   classId: z.string().min(1),
   slotId: z.string().min(1),
   status: z.enum(["submitted", "under_review", "revision_needed", "passed"]),
-  teacherFeedback: z.string().trim().max(4000).optional(),
+  teacherFeedback: z.string().trim().max(8000).optional(),
 });
 
 const reopenFinalSubmissionSchema = z.object({
