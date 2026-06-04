@@ -205,7 +205,7 @@ function AIReviewRunCard({
   isLatest?: boolean;
 }) {
   const diagnostics = getAIReviewExtractionDiagnostics(run.rawResponse);
-  const feedbackDraft = buildFeedbackDraft(run);
+  const feedbackDraft = getAIReviewStudentFeedbackDraft(run.rawResponse) ?? buildFeedbackDraft(run);
   const summaryDraft = buildSummaryFeedbackDraft(run);
   const concernsDraft = buildFindingFeedbackDraft(run, "Concerns", "concern");
   const suggestionsDraft = buildFindingFeedbackDraft(
@@ -397,6 +397,16 @@ function buildFeedbackDraft(run: AIReviewRunView) {
   ].filter(Boolean);
 
   return truncateText(sections.join("\n\n"), 1800);
+}
+
+function getAIReviewStudentFeedbackDraft(value: unknown) {
+  if (!isRecord(value) || typeof value.studentFeedbackDraft !== "string") {
+    return null;
+  }
+
+  const draft = value.studentFeedbackDraft.trim();
+
+  return draft.length > 0 ? draft : null;
 }
 
 function buildSummaryFeedbackDraft(run: AIReviewRunView) {

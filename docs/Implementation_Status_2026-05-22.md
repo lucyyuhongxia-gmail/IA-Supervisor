@@ -162,11 +162,18 @@ and backlog supplement.
 - AI review separates strengths, concerns, suggestions, and rubric alignment.
 - AI review prompt v2 asks the model to act like an experienced IB DP CS teacher/examiner, follow only the 2027
   syllabus, cite evidence for each concern/suggestion, and provide specific revision guidance.
+- AI review prompt v3 strengthens student-facing feedback quality by requiring Markdown-ready feedback with Summary,
+  What is working, What to revise, and Next actions sections. Revision bullets must include evidence, issue, why it
+  matters, and action.
 - AI review normalization accepts both object-based examiner feedback and older string arrays, then stores evidence
   grounded feedback in the existing strengths/concerns/suggestions UI.
+- Teacher copy-to-feedback now prefers the model's `studentFeedbackDraft` when present, while preserving summary,
+  concerns, suggestions, and full-draft fallback copy buttons.
 - Local AI review evaluation harness is available through `npm run ai-review:evaluate`.
 - The harness checks stored AI review runs or JSON fixtures for evidence grounding, issue/why/revision structure,
   2027 syllabus alignment, forbidden extraction contradictions, grade/mark predictions, and generic feedback.
+- The harness also checks whether `studentFeedbackDraft` uses the expected Markdown headings and includes evidence,
+  why-it-matters, and action signals.
 - Teacher can copy AI summary, concerns, suggestions, or full draft into teacher feedback.
 - AI review does not change submission status, assign final marks, or send feedback automatically.
 - Current/stale AI review state is shown to help teachers know whether the latest version has been reviewed.

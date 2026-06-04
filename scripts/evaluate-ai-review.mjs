@@ -177,6 +177,9 @@ function normalizeReviewInput(value, sourceLabel) {
       ];
 
   const rawResponse = isRecord(record.rawResponse) ? record.rawResponse : record;
+  const studentFeedbackDraft =
+    stringField(record.studentFeedbackDraft) ||
+    stringField(rawResponse.studentFeedbackDraft);
   const rubricAlignment =
     Array.isArray(record.rubricAlignment)
       ? record.rubricAlignment
@@ -192,6 +195,7 @@ function normalizeReviewInput(value, sourceLabel) {
     confidence: stringField(record.confidence),
     findings,
     rubricAlignment,
+    studentFeedbackDraft,
     rawResponse,
   };
 }
@@ -306,6 +310,8 @@ function evaluateReview(review) {
         : `${genericFindings.length} generic findings found.`,
   });
 
+  addStudentFeedbackDraftChecks(checks, review.studentFeedbackDraft);
+
   return {
     checks,
     failures: checks.filter((check) => check.severity === "fail" && !check.pass),
@@ -313,10 +319,54 @@ function evaluateReview(review) {
   };
 }
 
+function addStudentFeedbackDraftChecks(checks, draft) {
+  if (!draft) {
+    addCheck(checks, {
+      name: "Student feedback draft present",
+      pass: false,
+      severity: "warn",
+      detail: "Expected studentFeedbackDraft for teacher copy-to-feedback workflow.",
+    });
+    return;
+  }
+
+  addCheck(checks, {
+    name: "Student feedback draft uses Markdown headings",
+    pass:
+      /##\s+Summary/i.test(draft) &&
+      /##\s+What is working/i.test(draft) &&
+      /##\s+What to revise/i.test(draft) &&
+      /##\s+Next actions/i.test(draft),
+    severity: "warn",
+    detail: "Expected Summary, What is working, What to revise, and Next actions headings.",
+  });
+
+  addCheck(checks, {
+    name: "Student feedback draft cites evidence",
+    pass: hasEvidenceSignal(draft),
+    severity: "warn",
+    detail: truncate(draft, 160),
+  });
+
+  addCheck(checks, {
+    name: "Student feedback draft explains importance",
+    pass: /Why it matters:/i.test(draft),
+    severity: "warn",
+    detail: "Expected Why it matters in revision bullets.",
+  });
+
+  addCheck(checks, {
+    name: "Student feedback draft includes actions",
+    pass: /Action:/i.test(draft),
+    severity: "warn",
+    detail: "Expected Action in revision bullets.",
+  });
+}
+
 function addStructuredConcernChecks(checks, text, index) {
   addCheck(checks, {
     name: `Concern ${index}: evidence cited`,
-    pass: /Evidence:/i.test(text),
+    pass: hasEvidenceSignal(text),
     severity: "fail",
     detail: truncate(text, 140),
   });
@@ -346,7 +396,7 @@ function addStructuredConcernChecks(checks, text, index) {
 function addStructuredSuggestionChecks(checks, text, index) {
   addCheck(checks, {
     name: `Suggestion ${index}: evidence cited`,
-    pass: /Evidence:/i.test(text),
+    pass: hasEvidenceSignal(text),
     severity: "warn",
     detail: truncate(text, 140),
   });
@@ -397,6 +447,10 @@ function addRubricAlignmentChecks(checks, item, index) {
     severity: "warn",
     detail: truncate(stringField(item.evidence) || "missing evidence", 120),
   });
+}
+
+function hasEvidenceSignal(text) {
+  return /Evidence:/i.test(text) || /Evidence file:/i.test(text);
 }
 
 function addCheck(checks, check) {

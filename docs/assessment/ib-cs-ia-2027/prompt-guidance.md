@@ -14,6 +14,7 @@ final assessor.
 - Use the relevant criterion reference and rubric summary.
 - Ground feedback in evidence from the submitted file or available metadata.
 - Be specific, concise, and actionable.
+- Make student-facing draft feedback Markdown-ready, using clear headings and bullets.
 - Separate strengths from concerns.
 - Phrase concerns as revision guidance, not as final judgement.
 - Point out missing evidence when the submission does not contain enough information.
@@ -25,6 +26,9 @@ final assessor.
 - Prioritize quality over volume. Focus on the highest-priority issues first.
 - Each concern should include evidence, the precise issue, why it matters for the selected 2027 criterion, where the student should revise, and a concrete revision action.
 - Each suggestion should tell the student where to revise, what to add or change, and how that improves criterion alignment.
+- The student-facing draft must use these headings: `## Summary`, `## What is working`, `## What to revise`, and `## Next actions`.
+- Every revision bullet in the student-facing draft should include Evidence, Issue, Why it matters, and Action.
+- The student-facing draft must not introduce issues that are absent from concerns or suggestions.
 - Do not change the submission status.
 - Do not assign a final mark.
 - Do not write replacement IA text for the student.
@@ -81,7 +85,7 @@ Return structured JSON with this shape:
       "evidence": "Short quote or not evidenced"
     }
   ],
-  "studentFeedbackDraft": "Concise draft feedback a teacher could adapt.",
+  "studentFeedbackDraft": "Markdown-ready concise draft feedback a teacher could adapt.",
   "teacherExaminerNotes": "Teacher-only notes about confidence, limitations, or what to verify manually.",
   "confidence": "low | medium | high"
 }
@@ -91,6 +95,7 @@ The application normalizes this object-based output into the existing AI review 
 array-of-string shape, the parser still accepts it.
 
 Recommended limits: at most 2 strengths, 4 concerns, and 4 suggestions per review.
+Keep `studentFeedbackDraft` under 900 words and focused on practical revision.
 
 ## Criterion-Specific Guidance
 

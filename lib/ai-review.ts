@@ -574,7 +574,7 @@ function buildExaminerResponseInstructions(criterionCode: string) {
           },
         ],
         studentFeedbackDraft:
-          "concise draft feedback a teacher could adapt; must cite evidence and not assign marks",
+          "Markdown-ready concise draft feedback a teacher could adapt; must cite evidence and not assign marks",
         teacherExaminerNotes:
           "teacher-only notes about confidence, limitations, or what to verify manually",
         confidence: "low | medium | high",
@@ -591,6 +591,10 @@ function buildExaminerResponseInstructions(criterionCode: string) {
     "- If the document has no visible heading, use a nearby phrase from the extracted text as the locator.",
     "- Do not repeat the same issue in both concerns and suggestions unless the suggestion adds a different action.",
     "- Review only the selected criterion.",
+    "- studentFeedbackDraft must be student-facing Markdown with these headings: ## Summary, ## What is working, ## What to revise, ## Next actions.",
+    "- In studentFeedbackDraft, every revision bullet must include Evidence, Issue, Why it matters, and Action.",
+    "- studentFeedbackDraft must not introduce issues that are absent from concerns or suggestions.",
+    "- Keep studentFeedbackDraft under 900 words and focused on practical revision.",
     "Bad feedback: \"Add more detail.\"",
     "Good feedback: \"Evidence: 'The librarian can search by title'. Issue: The success criterion is functional but not measurable. Why it matters: Criterion A requires success criteria that can later be evaluated. Revision guidance: Rewrite it as a testable outcome, such as search accuracy, acceptable response time, and expected results for valid/invalid searches.\"",
   ].join("\n\n");
@@ -878,7 +882,11 @@ function formatEvidence(evidence: {
   locator: string;
   quote: string;
 }) {
-  return `Evidence: ${evidence.fileName} · ${evidence.locator} · "${truncate(evidence.quote, 260)}"`;
+  return [
+    `Evidence file: ${evidence.fileName}`,
+    `Evidence location: ${evidence.locator}`,
+    `Evidence quote: "${truncate(evidence.quote, 220)}"`,
+  ].join("\n");
 }
 
 function joinFindingSections(sections: string[]) {
