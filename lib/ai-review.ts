@@ -592,6 +592,7 @@ function buildExaminerResponseInstructions(criterionCode: string) {
     "- Do not repeat the same issue in both concerns and suggestions unless the suggestion adds a different action.",
     "- Review only the selected criterion.",
     "- studentFeedbackDraft must be student-facing Markdown with these headings: ## Summary, ## What is working, ## What to revise, ## Next actions.",
+    "- Put every Markdown heading on its own line with a blank line before and after it. Never place two headings on the same line.",
     "- In studentFeedbackDraft, every revision bullet must include Evidence, Issue, Why it matters, and Action.",
     "- studentFeedbackDraft must not introduce issues that are absent from concerns or suggestions.",
     "- Keep studentFeedbackDraft under 900 words and focused on practical revision.",

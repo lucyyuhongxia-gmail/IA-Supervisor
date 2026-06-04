@@ -12,6 +12,7 @@ type FeedbackSection = {
 
 type FeedbackBlock =
   | { type: "paragraph"; text: string }
+  | { type: "subheading"; text: string }
   | { type: "list"; listType: "ordered" | "unordered"; items: string[] };
 
 const sectionHeadings = new Set([
@@ -23,6 +24,9 @@ const sectionHeadings = new Set([
   "suggestions",
   "suggested next steps",
   "next steps",
+  "what is working",
+  "what to revise",
+  "next actions",
   "teacher feedback",
 ]);
 
@@ -82,6 +86,14 @@ function FeedbackLines({
           );
         }
 
+        if (block.type === "subheading") {
+          return (
+            <p key={index} className="text-sm font-semibold text-foreground">
+              <MarkdownInline text={block.text} />
+            </p>
+          );
+        }
+
         return (
           <p key={index} className="whitespace-pre-wrap">
             <MarkdownInline text={block.text} />
@@ -93,7 +105,7 @@ function FeedbackLines({
 }
 
 function parseFeedbackSections(content: string) {
-  const lines = content
+  const lines = normalizeMarkdownStructure(content)
     .split(/\r?\n/)
     .map((line) => line.trimEnd());
   const sections: FeedbackSection[] = [];
@@ -177,6 +189,7 @@ function groupLines(lines: string[]) {
 
     const unorderedBullet = trimmed.match(/^[-*•]\s+(.+)$/);
     const orderedBullet = trimmed.match(/^\d+\.\s+(.+)$/);
+    const subheading = trimmed.match(/^#{3,6}\s+(.+)$/);
 
     if (unorderedBullet) {
       flushParagraph();
@@ -190,6 +203,13 @@ function groupLines(lines: string[]) {
       continue;
     }
 
+    if (subheading) {
+      flushParagraph();
+      flushList();
+      blocks.push({ type: "subheading", text: subheading[1].trim() });
+      continue;
+    }
+
     flushList();
     paragraph.push(trimmed);
   }
@@ -198,6 +218,13 @@ function groupLines(lines: string[]) {
   flushList();
 
   return blocks;
+}
+
+function normalizeMarkdownStructure(content: string) {
+  return content
+    .replace(/[ \t]+(#{2,6}\s+)/g, "\n\n$1")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function MarkdownInline({ text }: { text: string }) {
@@ -251,13 +278,22 @@ function getSectionTone(title: string) {
     return "border-emerald-200 bg-emerald-50 text-emerald-950";
   }
 
+  if (normalizedTitle.includes("working")) {
+    return "border-emerald-200 bg-emerald-50 text-emerald-950";
+  }
+
   if (normalizedTitle.includes("concern")) {
+    return "border-amber-200 bg-amber-50 text-amber-950";
+  }
+
+  if (normalizedTitle.includes("revise")) {
     return "border-amber-200 bg-amber-50 text-amber-950";
   }
 
   if (
     normalizedTitle.includes("suggest") ||
-    normalizedTitle.includes("next step")
+    normalizedTitle.includes("next step") ||
+    normalizedTitle.includes("next action")
   ) {
     return "border-blue-200 bg-blue-50 text-blue-950";
   }

@@ -27,6 +27,7 @@ final assessor.
 - Each concern should include evidence, the precise issue, why it matters for the selected 2027 criterion, where the student should revise, and a concrete revision action.
 - Each suggestion should tell the student where to revise, what to add or change, and how that improves criterion alignment.
 - The student-facing draft must use these headings: `## Summary`, `## What is working`, `## What to revise`, and `## Next actions`.
+- Every Markdown heading must be on its own line with a blank line before and after it. Never place two headings on the same line.
 - Every revision bullet in the student-facing draft should include Evidence, Issue, Why it matters, and Action.
 - The student-facing draft must not introduce issues that are absent from concerns or suggestions.
 - Do not change the submission status.

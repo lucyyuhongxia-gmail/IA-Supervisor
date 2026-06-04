@@ -406,7 +406,7 @@ function getAIReviewStudentFeedbackDraft(value: unknown) {
 
   const draft = value.studentFeedbackDraft.trim();
 
-  return draft.length > 0 ? draft : null;
+  return draft.length > 0 ? normalizeFeedbackDraftForCopy(draft) : null;
 }
 
 function buildSummaryFeedbackDraft(run: AIReviewRunView) {
@@ -451,9 +451,16 @@ function truncateText(value: string, maxLength: number) {
 function copyToFeedback(feedbackDraft: string) {
   window.dispatchEvent(
     new CustomEvent("ia-supervisor:copy-ai-feedback", {
-      detail: { feedbackDraft },
+      detail: { feedbackDraft: normalizeFeedbackDraftForCopy(feedbackDraft) },
     }),
   );
+}
+
+function normalizeFeedbackDraftForCopy(feedbackDraft: string) {
+  return feedbackDraft
+    .replace(/[ \t]+(#{2,6}\s+)/g, "\n\n$1")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function formatAIReviewStatus(status: string) {
