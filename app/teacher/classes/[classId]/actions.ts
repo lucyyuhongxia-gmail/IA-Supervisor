@@ -207,7 +207,17 @@ export async function updateTeacherFeedbackAction(
   const trimmedFeedback = nextFeedback?.trim() ?? "";
   const shouldSendFeedback =
     parsed.data.status === "revision_needed" || parsed.data.status === "passed";
-  const studentVisibleFeedback = shouldSendFeedback ? nextFeedback : slot.teacherFeedback;
+
+  if (shouldSendFeedback && !trimmedFeedback) {
+    return {
+      error:
+        "Add feedback before sending a revision request or marking this criterion passed.",
+    };
+  }
+
+  const studentVisibleFeedback = shouldSendFeedback
+    ? trimmedFeedback
+    : slot.teacherFeedback;
 
   await prisma.$transaction(async (tx) => {
     await tx.submissionSlot.update({
@@ -342,7 +352,7 @@ export async function updateTeacherFeedbackAction(
             enrollmentId: slot.enrollmentId,
             criterionId: slot.criterionId,
             submissionVersionId: slot.latestVersionId,
-            feedbackLength: nextFeedback?.length ?? 0,
+            feedbackLength: trimmedFeedback.length,
             feedbackSnapshotStatus: shouldSendFeedback ? "sent" : "draft",
           },
         },
@@ -358,7 +368,11 @@ export async function updateTeacherFeedbackAction(
   revalidatePath(`/student/classes/${parsed.data.classId}/criteria/${slot.criterionId}`);
   revalidatePath("/student/dashboard");
 
-  return { success: "Feedback saved." };
+  return {
+    success: shouldSendFeedback
+      ? "Feedback sent to the student."
+      : "Feedback saved as a teacher draft.",
+  };
 }
 
 export async function reopenFinalSubmissionAction(

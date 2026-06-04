@@ -168,6 +168,18 @@ export default async function StudentCriterionSubmissionPage({
             </div>
           </CardContent>
         </Card>
+      ) : needsRevision ? (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardHeader>
+            <CardTitle className="text-lg text-amber-950">
+              Revision needed
+            </CardTitle>
+            <CardDescription className="text-amber-900">
+              Your teacher requested a revision, but no student-visible feedback
+              has been sent for this version yet.
+            </CardDescription>
+          </CardHeader>
+        </Card>
       ) : null}
 
       <Card>
