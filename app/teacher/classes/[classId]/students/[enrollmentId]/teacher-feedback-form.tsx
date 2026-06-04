@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
+import type { SubmissionStatus } from "@prisma/client";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -16,11 +17,14 @@ type TeacherFeedbackFormProps = {
   classId: string;
   slotId: string;
   criterionCode: string;
-  currentStatus: string;
+  currentStatus: SubmissionStatus;
   feedback: string;
   queueHref: string;
   aiReviewState: "missing" | "current" | "stale" | "failed" | "pending";
   nextReviewHref?: string;
+  latestVersionLabel?: string;
+  latestSubmittedLabel?: string;
+  reviewedLabel?: string | null;
 };
 
 export function TeacherFeedbackForm({
@@ -32,6 +36,9 @@ export function TeacherFeedbackForm({
   queueHref,
   aiReviewState,
   nextReviewHref,
+  latestVersionLabel,
+  latestSubmittedLabel,
+  reviewedLabel,
 }: TeacherFeedbackFormProps) {
   const [feedbackDraft, setFeedbackDraft] = useState(feedback);
   const [selectedStatus, setSelectedStatus] = useState(
@@ -122,16 +129,44 @@ export function TeacherFeedbackForm({
   }
 
   return (
-    <form action={formAction} className="grid content-start gap-3 rounded-md border p-3">
+    <form action={formAction} className="grid content-start gap-4 rounded-md border bg-card p-4">
       <input type="hidden" name="classId" value={classId} />
       <input type="hidden" name="slotId" value={slotId} />
+      <div className="flex items-start justify-between gap-3 border-b pb-3">
+        <div>
+          <p className="text-lg font-semibold tracking-normal">Review decision</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Set the status and send concise feedback to the student.
+          </p>
+        </div>
+        <span
+          className={`inline-flex shrink-0 rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(currentStatus)}`}
+        >
+          {formatSubmissionStatus(currentStatus)}
+        </span>
+      </div>
+      {latestVersionLabel ? (
+        <div className="rounded-md border bg-muted/20 px-3 py-2 text-sm">
+          <p className="font-medium">{latestVersionLabel}</p>
+          {latestSubmittedLabel ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {latestSubmittedLabel}
+            </p>
+          ) : null}
+          {reviewedLabel ? (
+            <p className="mt-1 text-xs text-muted-foreground">{reviewedLabel}</p>
+          ) : null}
+        </div>
+      ) : null}
       <div className="grid gap-1">
         <Label htmlFor={`teacher-status-${slotId}`}>Review status</Label>
         <select
           id={`teacher-status-${slotId}`}
           name="status"
           value={selectedStatus}
-          onChange={(event) => setSelectedStatus(event.target.value)}
+          onChange={(event) =>
+            setSelectedStatus(event.target.value as SubmissionStatus)
+          }
           className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {teacherReviewStatuses.map((status) => (
@@ -252,8 +287,28 @@ export function TeacherFeedbackForm({
   );
 }
 
-function isStudentVisibleStatus(status: string) {
+function isStudentVisibleStatus(status: SubmissionStatus) {
   return status === "revision_needed" || status === "passed";
+}
+
+function getStatusTone(status: SubmissionStatus) {
+  switch (status) {
+    case "passed":
+    case "final_submitted":
+      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+    case "submitted":
+    case "under_review":
+      return "border-blue-200 bg-blue-50 text-blue-800";
+    case "revision_needed":
+      return "border-amber-200 bg-amber-50 text-amber-800";
+    case "locked":
+      return "border-stone-200 bg-stone-50 text-stone-700";
+    case "draft":
+      return "border-zinc-200 bg-zinc-50 text-zinc-700";
+    case "not_started":
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-600";
+  }
 }
 
 function getAIReviewGuardMessage(

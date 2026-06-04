@@ -211,7 +211,7 @@ export default async function TeacherCriterionReviewPage({
   });
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-5 px-6 py-8">
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-6 py-8">
       <section className="grid gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <Button asChild variant="ghost" size="sm" className="-ml-3">
@@ -264,19 +264,26 @@ export default async function TeacherCriterionReviewPage({
         </div>
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
         <div className="grid min-w-0 gap-5">
           <Card>
             <CardHeader className="p-4 pb-3">
-              <CardTitle className="text-lg">Submission</CardTitle>
-              <CardDescription>
-                Review the latest file and extraction before using AI notes.
-              </CardDescription>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <CardTitle className="text-lg">Check submission</CardTitle>
+                  <CardDescription>
+                    Open the latest PDF and confirm readable extracted text before relying on AI notes.
+                  </CardDescription>
+                </div>
+                <span className="inline-flex w-fit rounded-md border px-2 py-1 text-xs font-semibold text-muted-foreground">
+                  {files.length} {files.length === 1 ? "file" : "files"}
+                </span>
+              </div>
             </CardHeader>
             <CardContent className="p-4 pt-0">
               {files.length > 0 ? (
                 <div className="grid gap-3">
-                  {files.map((fileAsset) => {
+                  {files.map((fileAsset, fileIndex) => {
                     const extraction = fileExtractionPreviewsById.get(fileAsset.id);
                     const isPdf = isPdfFile(fileAsset);
 
@@ -304,7 +311,10 @@ export default async function TeacherCriterionReviewPage({
                           ) : null}
                         </div>
                         {isPdf ? (
-                          <details className="mt-3 rounded-md border bg-background" open>
+                          <details
+                            className="mt-3 rounded-md border bg-background"
+                            open={fileIndex === 0}
+                          >
                             <summary className="cursor-pointer px-3 py-2 text-xs font-medium">
                               PDF preview
                             </summary>
@@ -312,7 +322,7 @@ export default async function TeacherCriterionReviewPage({
                               <iframe
                                 src={`/api/files/${fileAsset.id}?disposition=inline#toolbar=1&navpanes=0`}
                                 title={`PDF preview for ${fileAsset.originalName}`}
-                                className="h-[520px] w-full rounded-md border bg-background"
+                                className="h-[640px] w-full rounded-md border bg-background"
                               />
                               <p className="mt-2 text-xs text-muted-foreground">
                                 If the preview is blank, open the file link above.
@@ -595,42 +605,7 @@ export default async function TeacherCriterionReviewPage({
           </details>
         </div>
 
-        <aside className="grid gap-4 lg:sticky lg:top-6">
-          <Card>
-            <CardHeader className="p-4 pb-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <CardTitle className="text-lg">Teacher decision</CardTitle>
-                  <CardDescription>Status and feedback for this version.</CardDescription>
-                </div>
-                <p
-                  className={`inline-flex shrink-0 rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(slot.status)}`}
-                >
-                  {formatSubmissionStatus(slot.status)}
-                </p>
-              </div>
-            </CardHeader>
-            <CardContent className="grid gap-3 p-4 pt-0 text-sm">
-              {latestVersion ? (
-                <div className="rounded-md border bg-muted/20 p-3">
-                  <p className="font-medium">Latest version: v{latestVersion.versionNumber}</p>
-                  <p className="mt-1 text-muted-foreground">
-                    Submitted {latestVersion.submittedAt.toLocaleString()}
-                  </p>
-                  {reviewedAt ? (
-                    <p className="mt-1 text-muted-foreground">
-                      Reviewed {reviewedAt.toLocaleString()}
-                    </p>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="rounded-md border p-3 text-muted-foreground">
-                  No submitted version yet.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
+        <aside className="grid gap-4 lg:sticky lg:top-24">
           {slot.status === "final_submitted" ? (
             <ReopenFinalSubmissionForm
               classId={enrollment.class.id}
@@ -646,6 +621,19 @@ export default async function TeacherCriterionReviewPage({
               queueHref="/teacher/dashboard"
               aiReviewState={aiReviewState}
               nextReviewHref={nextReviewItem?.href}
+              latestVersionLabel={
+                latestVersion
+                  ? `Latest version: v${latestVersion.versionNumber}`
+                  : "No submitted version yet"
+              }
+              latestSubmittedLabel={
+                latestVersion
+                  ? `Submitted ${latestVersion.submittedAt.toLocaleString()}`
+                  : undefined
+              }
+              reviewedLabel={
+                reviewedAt ? `Reviewed ${reviewedAt.toLocaleString()}` : null
+              }
             />
           )}
         </aside>
