@@ -155,9 +155,16 @@ export default async function StudentCriterionSubmissionPage({
           </CardHeader>
           <CardContent>
             <div className="rounded-md border bg-white/70 p-4">
-              <p className="text-sm font-medium">
-                Teacher feedback
-              </p>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-medium">
+                  Teacher feedback
+                </p>
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/student/classes/${classRecord.id}/criteria/${criterion.id}/feedback`}>
+                    Print feedback
+                  </Link>
+                </Button>
+              </div>
               <FeedbackDisplay content={teacherFeedback} className="mt-3" />
               {reviewedAt ? (
                 <p className="mt-2 text-xs text-muted-foreground">
