@@ -78,7 +78,7 @@ function FeedbackLines({
           return (
             <ListTag key={index} className={listClassName}>
               {block.items.map((item, itemIndex) => (
-                <li key={itemIndex}>
+                <li key={itemIndex} className="whitespace-pre-wrap">
                   <MarkdownInline text={item} />
                 </li>
               ))}
@@ -190,6 +190,11 @@ function groupLines(lines: string[]) {
     const unorderedBullet = trimmed.match(/^[-*•]\s+(.+)$/);
     const orderedBullet = trimmed.match(/^\d+\.\s+(.+)$/);
     const subheading = trimmed.match(/^#{3,6}\s+(.+)$/);
+
+    if (listItems.length > 0 && /^\s{2,}\S/.test(line)) {
+      listItems[listItems.length - 1] = `${listItems[listItems.length - 1]}\n${trimmed}`;
+      continue;
+    }
 
     if (unorderedBullet) {
       flushParagraph();

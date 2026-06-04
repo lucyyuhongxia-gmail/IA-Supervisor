@@ -350,14 +350,14 @@ function addStudentFeedbackDraftChecks(checks, draft) {
 
   addCheck(checks, {
     name: "Student feedback draft explains importance",
-    pass: /Why it matters:/i.test(draft),
+    pass: hasLabelSignal(draft, "Why it matters"),
     severity: "warn",
     detail: "Expected Why it matters in revision bullets.",
   });
 
   addCheck(checks, {
     name: "Student feedback draft includes actions",
-    pass: /Action:/i.test(draft),
+    pass: hasLabelSignal(draft, "Action"),
     severity: "warn",
     detail: "Expected Action in revision bullets.",
   });
@@ -373,21 +373,21 @@ function addStructuredConcernChecks(checks, text, index) {
 
   addCheck(checks, {
     name: `Concern ${index}: issue stated`,
-    pass: /Issue:/i.test(text),
+    pass: hasLabelSignal(text, "Issue"),
     severity: "fail",
     detail: "Expect Issue: ...",
   });
 
   addCheck(checks, {
     name: `Concern ${index}: why it matters stated`,
-    pass: /Why it matters:/i.test(text),
+    pass: hasLabelSignal(text, "Why it matters"),
     severity: "fail",
     detail: "Expect Why it matters: ...",
   });
 
   addCheck(checks, {
     name: `Concern ${index}: revision guidance stated`,
-    pass: /Revision guidance:/i.test(text),
+    pass: hasLabelSignal(text, "Revision guidance"),
     severity: "fail",
     detail: "Expect Revision guidance: ...",
   });
@@ -450,7 +450,12 @@ function addRubricAlignmentChecks(checks, item, index) {
 }
 
 function hasEvidenceSignal(text) {
-  return /Evidence:/i.test(text) || /Evidence file:/i.test(text);
+  return hasLabelSignal(text, "Evidence") || /Evidence file:/i.test(text);
+}
+
+function hasLabelSignal(text, label) {
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?:\\*\\*)?${escapedLabel}(?:\\*\\*)?:`, "i").test(text);
 }
 
 function addCheck(checks, check) {
