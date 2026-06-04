@@ -49,15 +49,15 @@ export function AIReviewHistory({ runs, latestVersionId }: AIReviewHistoryProps)
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">AI review history</CardTitle>
+      <CardHeader className="p-4 pb-3">
+        <CardTitle className="text-lg">AI review</CardTitle>
         <CardDescription>
-          Draft AI notes using the IB CS IA 2027 syllabus. Teacher judgement remains final.
+          Latest draft notes using the IB CS IA 2027 syllabus. Teacher judgement remains final.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-4 pt-0">
         {latestRun ? (
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             <AIReviewQualityPanel run={latestRun} latestVersionId={latestVersionId} />
             <AIReviewRunCard
               run={latestRun}
@@ -143,11 +143,11 @@ function AIReviewQualityPanel({
       </div>
 
       {rubricAlignment.length > 0 ? (
-        <div className="grid gap-2">
-          <p className="text-xs font-semibold uppercase text-muted-foreground">
+        <details className="rounded-md border bg-background">
+          <summary className="cursor-pointer px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
             2027 rubric alignment
-          </p>
-          <div className="grid gap-2">
+          </summary>
+          <div className="grid gap-2 border-t p-3">
             {rubricAlignment.map((item) => (
               <div key={item.check} className="rounded-md border bg-background px-3 py-2">
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
@@ -162,7 +162,7 @@ function AIReviewQualityPanel({
               </div>
             ))}
           </div>
-        </div>
+        </details>
       ) : (
         <p className="rounded-md border bg-background px-3 py-2 text-xs text-muted-foreground">
           This review was created before structured rubric alignment was captured.
@@ -212,6 +212,10 @@ function AIReviewRunCard({
     run,
     "Suggested next steps",
     "suggestion",
+  );
+  const primaryFindings = getPrimaryFindings(run.findings);
+  const hiddenFindings = run.findings.filter(
+    (finding) => !primaryFindings.some((item) => item.id === finding.id),
   );
   const isCompleted = run.status === "completed";
   const coversLatestVersion =
@@ -268,7 +272,7 @@ function AIReviewRunCard({
       ) : null}
 
       {run.summary ? (
-        <p className="mt-3 whitespace-pre-wrap text-muted-foreground">
+        <p className="mt-3 whitespace-pre-wrap rounded-md border bg-muted/20 px-3 py-2 text-muted-foreground">
           {run.summary}
         </p>
       ) : null}
@@ -277,9 +281,9 @@ function AIReviewRunCard({
           {run.errorMessage}
         </p>
       ) : null}
-      {run.findings.length > 0 ? (
+      {primaryFindings.length > 0 ? (
         <div className="mt-3 grid gap-2">
-          {run.findings.map((finding) => (
+          {primaryFindings.map((finding) => (
             <div
               key={finding.id}
               className={`rounded-md border px-3 py-2 ${getFindingTone(finding.type)}`}
@@ -289,6 +293,24 @@ function AIReviewRunCard({
             </div>
           ))}
         </div>
+      ) : null}
+      {hiddenFindings.length > 0 ? (
+        <details className="mt-3 rounded-md border bg-muted/20">
+          <summary className="cursor-pointer px-3 py-2 text-xs font-medium">
+            All AI findings ({run.findings.length})
+          </summary>
+          <div className="grid gap-2 border-t p-3">
+            {run.findings.map((finding) => (
+              <div
+                key={finding.id}
+                className={`rounded-md border px-3 py-2 ${getFindingTone(finding.type)}`}
+              >
+                <p className="text-xs font-semibold uppercase">{finding.type}</p>
+                <p className="mt-1 whitespace-pre-wrap">{finding.text}</p>
+              </div>
+            ))}
+          </div>
+        </details>
       ) : null}
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         {run.confidence ? (
@@ -345,6 +367,23 @@ function AIReviewRunCard({
       </div>
     </div>
   );
+}
+
+function getPrimaryFindings(findings: AIReviewRunView["findings"]) {
+  const orderedTypes = ["concern", "suggestion", "strength"];
+  const selected: AIReviewRunView["findings"] = [];
+
+  for (const type of orderedTypes) {
+    for (const finding of findings.filter((item) => item.type === type)) {
+      if (selected.length >= 3) {
+        return selected;
+      }
+
+      selected.push(finding);
+    }
+  }
+
+  return selected;
 }
 
 function buildFeedbackDraft(run: AIReviewRunView) {

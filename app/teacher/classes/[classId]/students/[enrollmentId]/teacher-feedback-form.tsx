@@ -86,6 +86,17 @@ export function TeacherFeedbackForm({
     };
   }, []);
 
+  useEffect(() => {
+    if (state.success === "Feedback sent to the student.") {
+      const timeoutId = window.setTimeout(() => {
+        setFeedbackDraft("");
+        setCopyNotice("Feedback was sent. The draft box is ready for new notes.");
+      }, 0);
+
+      return () => window.clearTimeout(timeoutId);
+    }
+  }, [state.success]);
+
   const selectedTemplate =
     feedbackTemplates.find((template) => template.id === selectedTemplateId) ??
     feedbackTemplates[0];
@@ -147,38 +158,43 @@ export function TeacherFeedbackForm({
         ) : null}
       </div>
       {feedbackTemplates.length > 0 ? (
-        <div className="grid gap-2 rounded-md border bg-muted/20 p-3">
-          <div className="grid gap-1">
-            <Label htmlFor={`feedback-template-${slotId}`}>
-              Comment template
-            </Label>
-            <select
-              id={`feedback-template-${slotId}`}
-              value={selectedTemplateId}
-              onChange={(event) => setSelectedTemplateId(event.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        <details className="rounded-md border bg-muted/20">
+          <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
+            Comment templates
+          </summary>
+          <div className="grid gap-2 border-t p-3">
+            <div className="grid gap-1">
+              <Label htmlFor={`feedback-template-${slotId}`}>
+                Template
+              </Label>
+              <select
+                id={`feedback-template-${slotId}`}
+                value={selectedTemplateId}
+                onChange={(event) => setSelectedTemplateId(event.target.value)}
+                className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {feedbackTemplates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {selectedTemplate ? (
+              <p className="text-xs text-muted-foreground">
+                {selectedTemplate.teacherNote}
+              </p>
+            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={appendFeedbackTemplate}
             >
-              {feedbackTemplates.map((template) => (
-                <option key={template.id} value={template.id}>
-                  {template.title}
-                </option>
-              ))}
-            </select>
+              Insert template
+            </Button>
           </div>
-          {selectedTemplate ? (
-            <p className="text-xs text-muted-foreground">
-              {selectedTemplate.teacherNote}
-            </p>
-          ) : null}
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={appendFeedbackTemplate}
-          >
-            Insert template
-          </Button>
-        </div>
+        </details>
       ) : null}
       <div className="grid gap-1">
         <Label htmlFor={`teacher-feedback-${slotId}`}>Feedback</Label>
@@ -187,9 +203,9 @@ export function TeacherFeedbackForm({
           name="teacherFeedback"
           value={feedbackDraft}
           onChange={(event) => setFeedbackDraft(event.target.value)}
-          rows={6}
+          rows={5}
           maxLength={teacherFeedbackMaxLength}
-          className="min-h-32 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="min-h-28 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           placeholder="Write feedback for this criterion."
         />
         <div className="flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">

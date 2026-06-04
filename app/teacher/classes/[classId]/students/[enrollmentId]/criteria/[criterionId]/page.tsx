@@ -4,6 +4,7 @@ import type { SubmissionStatus } from "@prisma/client";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FeedbackDisplay } from "@/components/feedback-display";
 import { getCurrentUser } from "@/lib/current-user";
 import { extractFileText } from "@/lib/file-extraction";
 import { formatFileSize } from "@/lib/files";
@@ -210,105 +211,70 @@ export default async function TeacherCriterionReviewPage({
   });
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 px-6 py-10">
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <Button asChild variant="ghost" size="sm" className="-ml-3 mb-3">
+    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-5 px-6 py-8">
+      <section className="grid gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="ghost" size="sm" className="-ml-3">
             <Link href={`/teacher/classes/${classId}/students/${enrollment.id}`}>
               Back to student
             </Link>
           </Button>
-          <p className="text-sm font-medium text-muted-foreground">
-            {enrollment.class.name} · {enrollment.student.name}
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-normal">
-            Criterion {criterion.code}: {criterion.title}
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {enrollment.student.email} · {criterion.maxMarks} marks
-          </p>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/teacher/dashboard">Review queue</Link>
+          </Button>
+          {nextReviewItem ? (
+            <Button asChild size="sm">
+              <Link href={nextReviewItem.href}>Next item</Link>
+            </Button>
+          ) : null}
         </div>
-        <Button asChild variant="outline">
-          <Link href="/teacher/dashboard">Back to review queue</Link>
-        </Button>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">
+              {enrollment.class.name} · {enrollment.student.name}
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-normal">
+              Criterion {criterion.code}: {criterion.title}
+            </h1>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+              <span
+                className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(slot.status)}`}
+              >
+                {formatSubmissionStatus(slot.status)}
+              </span>
+              <span className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
+                {criterion.maxMarks} marks
+              </span>
+              {latestVersion ? (
+                <span className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
+                  Latest v{latestVersion.versionNumber}
+                </span>
+              ) : null}
+              <span className="text-muted-foreground">{enrollment.student.email}</span>
+            </div>
+          </div>
+          {nextReviewItem ? (
+            <p className="max-w-xl text-sm text-muted-foreground lg:text-right">
+              Next: {nextReviewItem.studentName} · {nextReviewItem.className} · Criterion{" "}
+              {nextReviewItem.criterionCode}
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">No next active item.</p>
+          )}
+        </div>
       </section>
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <CardTitle className="text-lg">Review navigation</CardTitle>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
+        <div className="grid min-w-0 gap-5">
+          <Card>
+            <CardHeader className="p-4 pb-3">
+              <CardTitle className="text-lg">Submission</CardTitle>
               <CardDescription>
-                Continue through the active review queue without returning to the dashboard.
+                Review the latest file and extraction before using AI notes.
               </CardDescription>
-            </div>
-            {nextReviewItem ? (
-              <Button asChild>
-                <Link href={nextReviewItem.href}>Next review item</Link>
-              </Button>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No next active item.
-              </p>
-            )}
-          </div>
-        </CardHeader>
-        {nextReviewItem ? (
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Next: {nextReviewItem.studentName} · {nextReviewItem.className} · Criterion{" "}
-              {nextReviewItem.criterionCode}: {nextReviewItem.criterionTitle}
-            </p>
-          </CardContent>
-        ) : null}
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <CardTitle className="text-lg">Review status</CardTitle>
-              <CardDescription>Current state for this criterion submission.</CardDescription>
-            </div>
-            <p
-              className={`inline-flex rounded-md border px-3 py-2 text-sm font-semibold ${getStatusTone(slot.status)}`}
-            >
-              {formatSubmissionStatus(slot.status)}
-            </p>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {latestVersion ? (
-            <div className="rounded-md border p-3 text-sm">
-              <p className="font-medium">Latest version: v{latestVersion.versionNumber}</p>
-              <p className="mt-1 text-muted-foreground">
-                Submitted {latestVersion.submittedAt.toLocaleString()}
-              </p>
-              {reviewedAt ? (
-                <p className="mt-1 text-muted-foreground">
-                  Reviewed {reviewedAt.toLocaleString()}
-                </p>
-              ) : null}
-            </div>
-          ) : (
-            <p className="rounded-md border p-3 text-sm text-muted-foreground">
-              No submitted version yet.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-4">
-        <div className="grid content-start gap-4">
-          {files.length > 0 ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Latest files</CardTitle>
-                <CardDescription>
-                  AI review uses server-side extracted text. Check the preview before relying on AI notes.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              {files.length > 0 ? (
                 <div className="grid gap-3">
                   {files.map((fileAsset) => {
                     const extraction = fileExtractionPreviewsById.get(fileAsset.id);
@@ -338,7 +304,7 @@ export default async function TeacherCriterionReviewPage({
                           ) : null}
                         </div>
                         {isPdf ? (
-                          <details className="mt-3 rounded-md border bg-background">
+                          <details className="mt-3 rounded-md border bg-background" open>
                             <summary className="cursor-pointer px-3 py-2 text-xs font-medium">
                               PDF preview
                             </summary>
@@ -346,7 +312,7 @@ export default async function TeacherCriterionReviewPage({
                               <iframe
                                 src={`/api/files/${fileAsset.id}?disposition=inline#toolbar=1&navpanes=0`}
                                 title={`PDF preview for ${fileAsset.originalName}`}
-                                className="h-[640px] w-full rounded-md border bg-background"
+                                className="h-[520px] w-full rounded-md border bg-background"
                               />
                               <p className="mt-2 text-xs text-muted-foreground">
                                 If the preview is blank, open the file link above.
@@ -374,9 +340,13 @@ export default async function TeacherCriterionReviewPage({
                     );
                   })}
                 </div>
-              </CardContent>
-            </Card>
-          ) : null}
+              ) : (
+                <p className="rounded-md border p-3 text-sm text-muted-foreground">
+                  No submitted files yet.
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
           <AIReviewForm
             classId={enrollment.class.id}
@@ -408,157 +378,139 @@ export default async function TeacherCriterionReviewPage({
             }))}
           />
 
-          {slot.status === "final_submitted" ? (
-            <ReopenFinalSubmissionForm
-              classId={enrollment.class.id}
-              slotId={slot.id}
-            />
-          ) : (
-            <TeacherFeedbackForm
-              classId={enrollment.class.id}
-              slotId={slot.id}
-              criterionCode={criterion.code}
-              currentStatus={slot.status}
-              feedback={feedback}
-              queueHref="/teacher/dashboard"
-              aiReviewState={aiReviewState}
-              nextReviewHref={nextReviewItem?.href}
-            />
-          )}
+          <details className="rounded-md border bg-card">
+            <summary className="cursor-pointer px-4 py-3 text-sm">
+              <span className="font-medium">Advanced review tools</span>
+              <span className="ml-3 text-muted-foreground">
+                Delta review, marking assistant, and semantic extraction
+              </span>
+            </summary>
+            <div className="grid gap-4 border-t p-4">
+              <DeltaReviewPanel
+                classId={enrollment.class.id}
+                slotId={slot.id}
+                disabled={slot.versions.length < 2}
+                versionCount={slot.versions.length}
+                review={
+                  latestDeltaReview
+                    ? {
+                        id: latestDeltaReview.id,
+                        summary: latestDeltaReview.summary,
+                        confidence: latestDeltaReview.confidence,
+                        createdAtLabel: latestDeltaReview.createdAt.toLocaleString(),
+                        requestedByName:
+                          latestDeltaReview.requestedBy.name ??
+                          latestDeltaReview.requestedBy.email,
+                        previousVersionNumber:
+                          latestDeltaReview.previousVersion.versionNumber,
+                        currentVersionNumber:
+                          latestDeltaReview.currentVersion.versionNumber,
+                        resolvedJson: latestDeltaReview.resolvedJson,
+                        remainingJson: latestDeltaReview.remainingJson,
+                        newEvidenceJson: latestDeltaReview.newEvidenceJson,
+                      }
+                    : null
+                }
+              />
 
-          <DeltaReviewPanel
-            classId={enrollment.class.id}
-            slotId={slot.id}
-            disabled={slot.versions.length < 2}
-            versionCount={slot.versions.length}
-            review={
-              latestDeltaReview
-                ? {
-                    id: latestDeltaReview.id,
-                    summary: latestDeltaReview.summary,
-                    confidence: latestDeltaReview.confidence,
-                    createdAtLabel: latestDeltaReview.createdAt.toLocaleString(),
-                    requestedByName:
-                      latestDeltaReview.requestedBy.name ??
-                      latestDeltaReview.requestedBy.email,
-                    previousVersionNumber:
-                      latestDeltaReview.previousVersion.versionNumber,
-                    currentVersionNumber:
-                      latestDeltaReview.currentVersion.versionNumber,
-                    resolvedJson: latestDeltaReview.resolvedJson,
-                    remainingJson: latestDeltaReview.remainingJson,
-                    newEvidenceJson: latestDeltaReview.newEvidenceJson,
-                  }
-                : null
-            }
-          />
+              <MarkingAssistantPanel
+                classId={enrollment.class.id}
+                slotId={slot.id}
+                disabled={!slot.latestVersionId}
+                maxMarks={criterion.maxMarks}
+                snapshot={
+                  latestMarkingSnapshot
+                    ? {
+                        id: latestMarkingSnapshot.id,
+                        suggestedMarkMin: latestMarkingSnapshot.suggestedMarkMin,
+                        suggestedMarkMax: latestMarkingSnapshot.suggestedMarkMax,
+                        suggestedSingleMark:
+                          latestMarkingSnapshot.suggestedSingleMark,
+                        confidence: latestMarkingSnapshot.confidence,
+                        rationale: latestMarkingSnapshot.rationale,
+                        createdAtLabel:
+                          latestMarkingSnapshot.createdAt.toLocaleString(),
+                        requestedByName:
+                          latestMarkingSnapshot.requestedBy.name ??
+                          latestMarkingSnapshot.requestedBy.email,
+                        descriptorEvidenceJson:
+                          latestMarkingSnapshot.descriptorEvidenceJson,
+                        teacherFinalMark: latestMarkingSnapshot.teacherFinalMark,
+                        teacherFinalComment:
+                          latestMarkingSnapshot.teacherFinalComment,
+                        finalMarkedAtLabel:
+                          latestMarkingSnapshot.finalMarkedAt?.toLocaleString() ??
+                          null,
+                      }
+                    : null
+                }
+              />
 
-          <MarkingAssistantPanel
-            classId={enrollment.class.id}
-            slotId={slot.id}
-            disabled={!slot.latestVersionId}
-            maxMarks={criterion.maxMarks}
-            snapshot={
-              latestMarkingSnapshot
-                ? {
-                    id: latestMarkingSnapshot.id,
-                    suggestedMarkMin: latestMarkingSnapshot.suggestedMarkMin,
-                    suggestedMarkMax: latestMarkingSnapshot.suggestedMarkMax,
-                    suggestedSingleMark:
-                      latestMarkingSnapshot.suggestedSingleMark,
-                    confidence: latestMarkingSnapshot.confidence,
-                    rationale: latestMarkingSnapshot.rationale,
-                    createdAtLabel:
-                      latestMarkingSnapshot.createdAt.toLocaleString(),
-                    requestedByName:
-                      latestMarkingSnapshot.requestedBy.name ??
-                      latestMarkingSnapshot.requestedBy.email,
-                    descriptorEvidenceJson:
-                      latestMarkingSnapshot.descriptorEvidenceJson,
-                    teacherFinalMark: latestMarkingSnapshot.teacherFinalMark,
-                    teacherFinalComment:
-                      latestMarkingSnapshot.teacherFinalComment,
-                    finalMarkedAtLabel:
-                      latestMarkingSnapshot.finalMarkedAt?.toLocaleString() ??
-                      null,
-                  }
-                : null
-            }
-          />
+              <SemanticExtractionPanel
+                classId={enrollment.class.id}
+                slotId={slot.id}
+                disabled={!slot.latestVersionId}
+                extraction={
+                  semanticExtraction
+                    ? {
+                        id: semanticExtraction.id,
+                        status: semanticExtraction.status,
+                        confidence: semanticExtraction.confidence,
+                        sourceCharacterCount:
+                          semanticExtraction.sourceCharacterCount,
+                        message: semanticExtraction.message,
+                        createdAtLabel: semanticExtraction.createdAt.toLocaleString(),
+                        confirmedAtLabel:
+                          semanticExtraction.confirmedAt?.toLocaleString() ?? null,
+                        confirmedByName:
+                          semanticExtraction.confirmedBy?.name ??
+                          semanticExtraction.confirmedBy?.email ??
+                          null,
+                        extractedJson: semanticExtraction.extractedJson,
+                      }
+                    : null
+                }
+              />
+            </div>
+          </details>
 
-          <SemanticExtractionPanel
-            classId={enrollment.class.id}
-            slotId={slot.id}
-            disabled={!slot.latestVersionId}
-            extraction={
-              semanticExtraction
-                ? {
-                    id: semanticExtraction.id,
-                    status: semanticExtraction.status,
-                    confidence: semanticExtraction.confidence,
-                    sourceCharacterCount:
-                      semanticExtraction.sourceCharacterCount,
-                    message: semanticExtraction.message,
-                    createdAtLabel: semanticExtraction.createdAt.toLocaleString(),
-                    confirmedAtLabel:
-                      semanticExtraction.confirmedAt?.toLocaleString() ?? null,
-                    confirmedByName:
-                      semanticExtraction.confirmedBy?.name ??
-                      semanticExtraction.confirmedBy?.email ??
-                      null,
-                    extractedJson: semanticExtraction.extractedJson,
-                  }
-                : null
-              }
-          />
-
-          {latestVersion?.feedbackSnapshots.length ? (
-            <details className="rounded-md border bg-card">
-              <summary className="cursor-pointer px-4 py-3 text-sm">
-                <span className="font-medium">Feedback history</span>
-                <span className="ml-3 text-muted-foreground">
-                  {latestVersion.feedbackSnapshots.length} snapshots for latest version
-                </span>
-              </summary>
-              <div className="grid gap-2 border-t px-4 py-3">
-                {latestVersion.feedbackSnapshots.map((snapshot) => (
-                  <div key={snapshot.id} className="rounded-md border p-3 text-sm">
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="font-medium">
-                          {formatFeedbackStatus(snapshot.status)}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {snapshot.createdBy.name ?? snapshot.createdBy.email}
+          <details className="rounded-md border bg-card">
+            <summary className="cursor-pointer px-4 py-3 text-sm">
+              <span className="font-medium">History</span>
+              <span className="ml-3 text-muted-foreground">
+                Feedback snapshots, versions, and audit events
+              </span>
+            </summary>
+            <div className="grid gap-4 border-t p-4">
+              {latestVersion?.feedbackSnapshots.length ? (
+                <section className="grid gap-2">
+                  <h2 className="text-sm font-semibold">Feedback history</h2>
+                  {latestVersion.feedbackSnapshots.map((snapshot) => (
+                    <div key={snapshot.id} className="rounded-md border p-3 text-sm">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="font-medium">
+                            {formatFeedbackStatus(snapshot.status)}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {snapshot.createdBy.name ?? snapshot.createdBy.email}
+                          </p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {snapshot.sentAt
+                            ? `Sent ${snapshot.sentAt.toLocaleString()}`
+                            : `Updated ${snapshot.updatedAt.toLocaleString()}`}
                         </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {snapshot.sentAt
-                          ? `Sent ${snapshot.sentAt.toLocaleString()}`
-                          : `Updated ${snapshot.updatedAt.toLocaleString()}`}
-                      </p>
+                      <FeedbackDisplay content={snapshot.content} className="mt-3 text-muted-foreground" />
                     </div>
-                    <p className="mt-3 whitespace-pre-wrap text-muted-foreground">
-                      {snapshot.content}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </details>
-          ) : null}
+                  ))}
+                </section>
+              ) : null}
 
-          {slot.versions.length > 0 ? (
-            <details className="rounded-md border bg-card">
-              <summary className="cursor-pointer px-4 py-3 text-sm">
-                <span className="font-medium">Version history</span>
-                <span className="ml-3 text-muted-foreground">
-                  Latest v{slot.versions[0]?.versionNumber} ·{" "}
-                  {slot.versions[0]?.submittedAt.toLocaleString()} ·{" "}
-                  {slot.versions.length} total
-                </span>
-              </summary>
-              <div className="border-t px-4 py-3">
-                <div className="grid gap-2">
+              {slot.versions.length > 0 ? (
+                <section className="grid gap-2">
+                  <h2 className="text-sm font-semibold">Version history</h2>
                   {slot.versions.map((version) => (
                     <div key={version.id} className="rounded-md border p-3 text-sm">
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
@@ -595,28 +547,17 @@ export default async function TeacherCriterionReviewPage({
                           <p className="text-xs font-medium text-muted-foreground">
                             Teacher feedback
                           </p>
-                          <p className="mt-1 whitespace-pre-wrap text-muted-foreground">
-                            {version.teacherFeedback}
-                          </p>
+                          <FeedbackDisplay content={version.teacherFeedback} className="mt-2 text-muted-foreground" />
                         </div>
                       ) : null}
                     </div>
                   ))}
-                </div>
-              </div>
-            </details>
-          ) : null}
+                </section>
+              ) : null}
 
-          {auditLogs.length > 0 ? (
-            <details className="rounded-md border bg-card">
-              <summary className="cursor-pointer px-4 py-3 text-sm">
-                <span className="font-medium">Audit history</span>
-                <span className="ml-3 text-muted-foreground">
-                  Latest {auditLogs.length} events
-                </span>
-              </summary>
-              <div className="border-t px-4 py-3">
-                <div className="grid gap-2">
+              {auditLogs.length > 0 ? (
+                <section className="grid gap-2">
+                  <h2 className="text-sm font-semibold">Audit history</h2>
                   {auditLogs.map((log) => (
                     <div key={log.id} className="rounded-md border p-3 text-sm">
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
@@ -648,12 +589,66 @@ export default async function TeacherCriterionReviewPage({
                       ) : null}
                     </div>
                   ))}
-                </div>
-              </div>
-            </details>
-          ) : null}
+                </section>
+              ) : null}
+            </div>
+          </details>
         </div>
 
+        <aside className="grid gap-4 lg:sticky lg:top-6">
+          <Card>
+            <CardHeader className="p-4 pb-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <CardTitle className="text-lg">Teacher decision</CardTitle>
+                  <CardDescription>Status and feedback for this version.</CardDescription>
+                </div>
+                <p
+                  className={`inline-flex shrink-0 rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(slot.status)}`}
+                >
+                  {formatSubmissionStatus(slot.status)}
+                </p>
+              </div>
+            </CardHeader>
+            <CardContent className="grid gap-3 p-4 pt-0 text-sm">
+              {latestVersion ? (
+                <div className="rounded-md border bg-muted/20 p-3">
+                  <p className="font-medium">Latest version: v{latestVersion.versionNumber}</p>
+                  <p className="mt-1 text-muted-foreground">
+                    Submitted {latestVersion.submittedAt.toLocaleString()}
+                  </p>
+                  {reviewedAt ? (
+                    <p className="mt-1 text-muted-foreground">
+                      Reviewed {reviewedAt.toLocaleString()}
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="rounded-md border p-3 text-muted-foreground">
+                  No submitted version yet.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {slot.status === "final_submitted" ? (
+            <ReopenFinalSubmissionForm
+              classId={enrollment.class.id}
+              slotId={slot.id}
+            />
+          ) : (
+            <TeacherFeedbackForm
+              classId={enrollment.class.id}
+              slotId={slot.id}
+              criterionCode={criterion.code}
+              currentStatus={slot.status}
+              feedback={feedback}
+              queueHref="/teacher/dashboard"
+              aiReviewState={aiReviewState}
+              nextReviewHref={nextReviewItem?.href}
+            />
+          )}
+        </aside>
       </div>
     </main>
   );

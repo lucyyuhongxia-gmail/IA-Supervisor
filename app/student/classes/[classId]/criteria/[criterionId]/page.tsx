@@ -4,6 +4,7 @@ import type { SubmissionStatus } from "@prisma/client";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FeedbackDisplay } from "@/components/feedback-display";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatFileSize, maxUploadSizeBytes } from "@/lib/files";
 import { prisma } from "@/lib/prisma";
@@ -157,9 +158,7 @@ export default async function StudentCriterionSubmissionPage({
               <p className="text-sm font-medium">
                 Teacher feedback
               </p>
-              <p className="mt-2 whitespace-pre-wrap text-sm">
-                {teacherFeedback}
-              </p>
+              <FeedbackDisplay content={teacherFeedback} className="mt-3" />
               {reviewedAt ? (
                 <p className="mt-2 text-xs text-muted-foreground">
                   Reviewed {reviewedAt.toLocaleString()}
@@ -307,9 +306,7 @@ export default async function StudentCriterionSubmissionPage({
                       <p className="text-xs font-medium text-muted-foreground">
                         Teacher feedback
                       </p>
-                      <p className="mt-1 whitespace-pre-wrap text-muted-foreground">
-                        {version.teacherFeedback}
-                      </p>
+                      <FeedbackDisplay content={version.teacherFeedback} className="mt-2 text-muted-foreground" />
                     </div>
                   ) : null}
                 </div>
