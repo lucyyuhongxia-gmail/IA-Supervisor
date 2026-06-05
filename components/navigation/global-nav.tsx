@@ -79,7 +79,7 @@ function getHomeHref(role: string) {
     case "student":
       return "/student/dashboard";
     case "admin":
-      return "/admin/assessment";
+      return "/admin/subjects";
     default:
       return "/login";
   }
@@ -97,6 +97,7 @@ function getNavItems(role: string) {
       ];
     case "admin":
       return [
+        { label: "Subjects", href: "/admin/subjects" },
         { label: "Assessment", href: "/admin/assessment" },
       ];
     default:

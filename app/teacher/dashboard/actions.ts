@@ -64,8 +64,38 @@ export async function createClassAction(
     where: { id: parsed.data.subjectId },
     select: {
       id: true,
+      isArchived: true,
       criteria: {
         select: { id: true, code: true },
+      },
+      milestoneTemplates: {
+        where: { isArchived: false },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select: {
+          title: true,
+          criterionId: true,
+          criterion: { select: { code: true } },
+          sortOrder: true,
+        },
+      },
+      deliverableTemplates: {
+        where: { isArchived: false },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          fileRequirement: true,
+          reviewMode: true,
+          sortOrder: true,
+          criteria: {
+            orderBy: { sortOrder: "asc" },
+            select: {
+              criterionId: true,
+              sortOrder: true,
+            },
+          },
+        },
       },
     },
   });
@@ -74,9 +104,47 @@ export async function createClassAction(
     return { error: "Subject not found. Run the Prisma seed first." };
   }
 
+  if (subject.isArchived) {
+    return { error: "This subject is archived and cannot be used for new classes." };
+  }
+
   const inviteCode = await createUniqueInviteCode();
   const criteriaByCode = new Map(
     subject.criteria.map((criterion) => [criterion.code, criterion.id]),
+  );
+  const milestoneTemplates =
+    subject.milestoneTemplates.length > 0
+      ? subject.milestoneTemplates.map((template, index) => ({
+          title: template.title,
+          sortOrder: template.sortOrder || index + 1,
+          criterionId:
+            template.criterionId ??
+            (template.criterion?.code
+              ? criteriaByCode.get(template.criterion.code)
+              : undefined),
+        }))
+      : defaultClassMilestones.map((milestone, index) => ({
+          title: milestone.title,
+          sortOrder: index + 1,
+          criterionId: milestone.criterionCode
+            ? criteriaByCode.get(milestone.criterionCode)
+            : undefined,
+        }));
+  const deliverableTemplates = subject.deliverableTemplates.map(
+    (template, index) => ({
+      sourceTemplateId: template.id,
+      title: template.title,
+      description: template.description,
+      fileRequirement: template.fileRequirement,
+      reviewMode: template.reviewMode,
+      sortOrder: template.sortOrder || index + 1,
+      criteria: {
+        create: template.criteria.map((link, linkIndex) => ({
+          criterionId: link.criterionId,
+          sortOrder: link.sortOrder || linkIndex + 1,
+        })),
+      },
+    }),
   );
   const classRecord = await prisma.$transaction(async (tx) => {
     const createdClass = await tx.class.create({
@@ -87,13 +155,10 @@ export async function createClassAction(
         subjectId: subject.id,
         teacherId: user.id,
         milestones: {
-          create: defaultClassMilestones.map((milestone, index) => ({
-            title: milestone.title,
-            sortOrder: index + 1,
-            criterionId: milestone.criterionCode
-              ? criteriaByCode.get(milestone.criterionCode)
-              : undefined,
-          })),
+          create: milestoneTemplates,
+        },
+        deliverables: {
+          create: deliverableTemplates,
         },
       },
       select: { id: true },
@@ -110,7 +175,8 @@ export async function createClassAction(
         metadata: {
           subjectId: subject.id,
           examSession: parsed.data.examSession,
-          milestoneCount: defaultClassMilestones.length,
+          milestoneCount: milestoneTemplates.length,
+          deliverableCount: deliverableTemplates.length,
         },
       },
       tx,

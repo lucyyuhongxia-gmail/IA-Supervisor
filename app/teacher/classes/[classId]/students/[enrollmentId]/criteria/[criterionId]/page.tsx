@@ -256,15 +256,15 @@ export default async function TeacherCriterionReviewPage({
         </div>
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
-        <div className="grid min-w-0 gap-5">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
+        <div className="grid min-w-0 gap-4">
           <Card>
             <CardHeader className="p-4 pb-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <CardTitle className="text-lg">Check submission</CardTitle>
+                  <CardTitle className="text-lg">Submitted evidence</CardTitle>
                   <CardDescription>
-                    Open the latest PDF and confirm readable extracted text before relying on AI notes.
+                    Open the PDF and confirm readable text before relying on AI notes.
                   </CardDescription>
                 </div>
                 <span className="inline-flex w-fit rounded-md border px-2 py-1 text-xs font-semibold text-muted-foreground">
@@ -349,13 +349,6 @@ export default async function TeacherCriterionReviewPage({
               )}
             </CardContent>
           </Card>
-
-          <AIReviewForm
-            classId={enrollment.class.id}
-            slotId={slot.id}
-            disabledReason={aiReviewDisabledReason}
-            aiReviewState={aiReviewState}
-          />
 
           <AIReviewHistory
             latestVersionId={slot.latestVersionId}
@@ -597,7 +590,14 @@ export default async function TeacherCriterionReviewPage({
           </details>
         </div>
 
-        <aside className="grid gap-4 lg:sticky lg:top-24">
+        <aside className="grid gap-3 lg:sticky lg:top-24">
+          <AIReviewForm
+            classId={enrollment.class.id}
+            slotId={slot.id}
+            disabledReason={aiReviewDisabledReason}
+            aiReviewState={aiReviewState}
+          />
+
           {slot.status === "final_submitted" ? (
             <ReopenFinalSubmissionForm
               classId={enrollment.class.id}

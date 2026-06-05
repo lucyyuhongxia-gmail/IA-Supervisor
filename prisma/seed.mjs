@@ -92,12 +92,81 @@ const milestoneCriterionLinks = [
   ["Criterion E: Evaluation draft", "E"],
 ];
 
+const subjectMilestoneTemplates = [
+  { title: "Project proposal approved", criterionCode: null, sortOrder: 1 },
+  { title: "Criterion A: Problem specification", criterionCode: "A", sortOrder: 2 },
+  { title: "Criterion B: Planning", criterionCode: "B", sortOrder: 3 },
+  { title: "Criterion C: System overview", criterionCode: "C", sortOrder: 4 },
+  { title: "Criterion D: Development checkpoint", criterionCode: "D", sortOrder: 5 },
+  { title: "Criterion E: Evaluation draft", criterionCode: "E", sortOrder: 6 },
+  { title: "Final IA package ready", criterionCode: null, sortOrder: 7 },
+];
+
+const subjectDeliverableTemplates = [
+  {
+    title: "Criterion A document",
+    description: "Problem specification document for Criterion A review.",
+    fileRequirement: "PDF only",
+    reviewMode: "single_criterion",
+    criterionCodes: ["A"],
+    sortOrder: 1,
+  },
+  {
+    title: "Criterion B document",
+    description: "Planning document for Criterion B review.",
+    fileRequirement: "PDF only",
+    reviewMode: "single_criterion",
+    criterionCodes: ["B"],
+    sortOrder: 2,
+  },
+  {
+    title: "Criterion C document",
+    description: "System overview document for Criterion C review.",
+    fileRequirement: "PDF only",
+    reviewMode: "single_criterion",
+    criterionCodes: ["C"],
+    sortOrder: 3,
+  },
+  {
+    title: "Criterion D document",
+    description: "Development document for Criterion D review.",
+    fileRequirement: "PDF only",
+    reviewMode: "single_criterion",
+    criterionCodes: ["D"],
+    sortOrder: 4,
+  },
+  {
+    title: "5-minute video",
+    description: "Video demonstration evidence used as part of Criterion D review.",
+    fileRequirement: "Video file or video link",
+    reviewMode: "single_criterion",
+    criterionCodes: ["D"],
+    sortOrder: 5,
+  },
+  {
+    title: "Criterion E document",
+    description: "Evaluation document for Criterion E review.",
+    fileRequirement: "PDF only",
+    reviewMode: "single_criterion",
+    criterionCodes: ["E"],
+    sortOrder: 6,
+  },
+  {
+    title: "Final combined IA package",
+    description: "Final combined submission package for archiving and final review.",
+    fileRequirement: "PDF only",
+    reviewMode: "final_package",
+    criterionCodes: ["A", "B", "C", "D", "E"],
+    sortOrder: 7,
+  },
+];
+
 async function main() {
   const passwordHash = await bcrypt.hash("password123", 10);
 
   const subject = await prisma.subject.upsert({
     where: { slug: "ib-computer-science" },
-    update: { name: "IB Computer Science" },
+    update: { name: "IB Computer Science", isArchived: false },
     create: {
       name: "IB Computer Science",
       slug: "ib-computer-science",
@@ -168,6 +237,83 @@ async function main() {
     seededCriteria.map((criterion) => [criterion.code, criterion.id]),
   );
 
+  for (const template of subjectMilestoneTemplates) {
+    const existingTemplate = await prisma.subjectMilestoneTemplate.findFirst({
+      where: {
+        subjectId: subject.id,
+        title: template.title,
+      },
+      select: { id: true },
+    });
+    const data = {
+      subjectId: subject.id,
+      title: template.title,
+      sortOrder: template.sortOrder,
+      criterionId: template.criterionCode
+        ? criteriaByCode.get(template.criterionCode)
+        : null,
+      isArchived: false,
+    };
+
+    if (existingTemplate) {
+      await prisma.subjectMilestoneTemplate.update({
+        where: { id: existingTemplate.id },
+        data,
+      });
+    } else {
+      await prisma.subjectMilestoneTemplate.create({ data });
+    }
+  }
+
+  const seededDeliverableTemplates = [];
+
+  for (const template of subjectDeliverableTemplates) {
+    const existingTemplate = await prisma.subjectDeliverableTemplate.findFirst({
+      where: {
+        subjectId: subject.id,
+        title: template.title,
+      },
+      select: { id: true },
+    });
+    const data = {
+      subjectId: subject.id,
+      title: template.title,
+      description: template.description,
+      fileRequirement: template.fileRequirement,
+      reviewMode: template.reviewMode,
+      sortOrder: template.sortOrder,
+      isArchived: false,
+    };
+    const deliverableTemplate = existingTemplate
+      ? await prisma.subjectDeliverableTemplate.update({
+          where: { id: existingTemplate.id },
+          data,
+        })
+      : await prisma.subjectDeliverableTemplate.create({ data });
+    const criterionIds = template.criterionCodes
+      .map((code) => criteriaByCode.get(code))
+      .filter(Boolean);
+
+    await prisma.subjectDeliverableTemplateCriterion.deleteMany({
+      where: { templateId: deliverableTemplate.id },
+    });
+
+    for (const [index, criterionId] of criterionIds.entries()) {
+      await prisma.subjectDeliverableTemplateCriterion.create({
+        data: {
+          templateId: deliverableTemplate.id,
+          criterionId,
+          sortOrder: index + 1,
+        },
+      });
+    }
+
+    seededDeliverableTemplates.push({
+      ...deliverableTemplate,
+      criterionIds,
+    });
+  }
+
   for (const [oldTitle, newTitle] of milestoneTitleUpdates) {
     await prisma.milestone.updateMany({
       where: { title: oldTitle },
@@ -187,6 +333,39 @@ async function main() {
           },
         },
         data: { criterionId },
+      });
+    }
+  }
+
+  const existingSubjectClasses = await prisma.class.findMany({
+    where: { subjectId: subject.id },
+    include: {
+      deliverables: { select: { id: true } },
+    },
+  });
+
+  for (const classRecord of existingSubjectClasses) {
+    if (classRecord.deliverables.length > 0) {
+      continue;
+    }
+
+    for (const template of seededDeliverableTemplates) {
+      await prisma.classDeliverable.create({
+        data: {
+          classId: classRecord.id,
+          sourceTemplateId: template.id,
+          title: template.title,
+          description: template.description,
+          fileRequirement: template.fileRequirement,
+          reviewMode: template.reviewMode,
+          sortOrder: template.sortOrder,
+          criteria: {
+            create: template.criterionIds.map((criterionId, index) => ({
+              criterionId,
+              sortOrder: index + 1,
+            })),
+          },
+        },
       });
     }
   }

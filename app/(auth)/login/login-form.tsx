@@ -37,8 +37,7 @@ export function LoginForm() {
     const session = (await sessionResponse.json()) as {
       user?: { role?: string };
     };
-    const defaultPath =
-      session.user?.role === "student" ? "/student/dashboard" : "/teacher/dashboard";
+    const defaultPath = getDefaultPathForRole(session.user?.role);
 
     router.push(searchParams.get("callbackUrl") ?? defaultPath);
     router.refresh();
@@ -73,4 +72,16 @@ export function LoginForm() {
       </Button>
     </form>
   );
+}
+
+function getDefaultPathForRole(role: string | undefined) {
+  switch (role) {
+    case "admin":
+      return "/admin/subjects";
+    case "student":
+      return "/student/dashboard";
+    case "teacher":
+    default:
+      return "/teacher/dashboard";
+  }
 }

@@ -64,10 +64,19 @@ function getBreadcrumbs(pathname: string, teacherClasses: TeacherClassOption[]) 
   }
 
   if (segments[0] === "admin") {
-    return [
-      { label: "Admin", href: "/admin/assessment" },
-      { label: "Assessment" },
-    ];
+    const crumbs: Crumb[] = [{ label: "Admin", href: "/admin/subjects" }];
+
+    if (segments[1] === "assessment") {
+      crumbs.push({ label: "Assessment" });
+      return crumbs;
+    }
+
+    if (segments[1] === "subjects") {
+      crumbs.push({ label: "Subjects" });
+      return crumbs;
+    }
+
+    return crumbs;
   }
 
   return [];

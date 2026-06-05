@@ -35,6 +35,7 @@ export default async function TeacherDashboardPage({
 
   const [subjects, classes, reviewQueueItems, activityItems] = await Promise.all([
     prisma.subject.findMany({
+      where: { isArchived: false },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),

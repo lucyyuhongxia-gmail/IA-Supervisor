@@ -55,9 +55,14 @@ export default async function AdminAssessmentPage({
             Active standard: IB Computer Science IA 2027 · {DEFAULT_REFERENCE_KEY}
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link href="/teacher/dashboard">Teacher dashboard</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link href="/admin/subjects">Subjects</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/teacher/dashboard">Teacher dashboard</Link>
+          </Button>
+        </div>
       </section>
 
       <Card>

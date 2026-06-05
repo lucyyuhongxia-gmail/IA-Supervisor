@@ -63,6 +63,12 @@ enum FeedbackSnapshotStatus {
   superseded
 }
 
+enum DeliverableReviewMode {
+  single_criterion
+  multi_criteria
+  final_package
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -91,11 +97,14 @@ model Subject {
   name                        String
   slug                        String   @unique
   activeAssessmentReferenceId String?  @map("active_assessment_reference_id")
+  isArchived                  Boolean  @default(false) @map("is_archived")
   createdAt                   DateTime @default(now()) @map("created_at")
   updatedAt                   DateTime @updatedAt @map("updated_at")
 
   classes                   Class[]
   criteria                  CriterionDef[]
+  milestoneTemplates        SubjectMilestoneTemplate[]
+  deliverableTemplates      SubjectDeliverableTemplate[]
   activeAssessmentReference AssessmentReference?  @relation("SubjectActiveAssessmentReference", fields: [activeAssessmentReferenceId], references: [id], onDelete: SetNull)
   assessmentReferences      AssessmentReference[] @relation("SubjectAssessmentReferences")
 
@@ -151,6 +160,9 @@ model CriterionDef {
   subject                 Subject              @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   submissionSlots         SubmissionSlot[]
   milestones              Milestone[]
+  milestoneTemplates      SubjectMilestoneTemplate[]
+  deliverableTemplateLinks SubjectDeliverableTemplateCriterion[]
+  classDeliverableLinks   ClassDeliverableCriterion[]
   aiReviewRuns            AIReviewRun[]
   semanticExtractions     SemanticExtraction[]
   sourceConsistencyChecks ConsistencyCheck[]   @relation("ConsistencyCheckSourceCriterion")
@@ -178,6 +190,7 @@ model Class {
   teacher           User               @relation("TeacherClasses", fields: [teacherId], references: [id])
   enrollments       Enrollment[]
   milestones        Milestone[]
+  deliverables      ClassDeliverable[]
   consistencyChecks ConsistencyCheck[]
 
   @@index([subjectId])
@@ -296,6 +309,96 @@ model Milestone {
   @@index([classId])
   @@index([criterionId])
   @@map("milestones")
+}
+
+model SubjectMilestoneTemplate {
+  id                String   @id @default(cuid())
+  subjectId         String   @map("subject_id")
+  criterionId       String?  @map("criterion_id")
+  title             String
+  description       String?
+  defaultOffsetDays Int?     @map("default_offset_days")
+  sortOrder         Int      @default(0) @map("sort_order")
+  isArchived        Boolean  @default(false) @map("is_archived")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  subject   Subject       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  criterion CriterionDef? @relation(fields: [criterionId], references: [id], onDelete: SetNull)
+
+  @@index([subjectId])
+  @@index([criterionId])
+  @@map("subject_milestone_templates")
+}
+
+model SubjectDeliverableTemplate {
+  id              String                @id @default(cuid())
+  subjectId       String                @map("subject_id")
+  title           String
+  description     String?
+  fileRequirement String?               @map("file_requirement")
+  reviewMode      DeliverableReviewMode @default(single_criterion) @map("review_mode")
+  sortOrder       Int                   @default(0) @map("sort_order")
+  isArchived      Boolean               @default(false) @map("is_archived")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+
+  subject           Subject                              @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  criteria          SubjectDeliverableTemplateCriterion[]
+  classDeliverables ClassDeliverable[]                   @relation("ClassDeliverableSourceTemplate")
+
+  @@index([subjectId])
+  @@map("subject_deliverable_templates")
+}
+
+model SubjectDeliverableTemplateCriterion {
+  id          String @id @default(cuid())
+  templateId  String @map("template_id")
+  criterionId String @map("criterion_id")
+  sortOrder   Int    @default(0) @map("sort_order")
+
+  template  SubjectDeliverableTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  criterion CriterionDef               @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, criterionId])
+  @@index([criterionId])
+  @@map("subject_deliverable_template_criteria")
+}
+
+model ClassDeliverable {
+  id               String                @id @default(cuid())
+  classId          String                @map("class_id")
+  sourceTemplateId String?               @map("source_template_id")
+  title            String
+  description      String?
+  fileRequirement  String?               @map("file_requirement")
+  reviewMode       DeliverableReviewMode @default(single_criterion) @map("review_mode")
+  sortOrder        Int                   @default(0) @map("sort_order")
+  isArchived       Boolean               @default(false) @map("is_archived")
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
+
+  class          Class                         @relation(fields: [classId], references: [id], onDelete: Cascade)
+  sourceTemplate SubjectDeliverableTemplate?   @relation("ClassDeliverableSourceTemplate", fields: [sourceTemplateId], references: [id], onDelete: SetNull)
+  criteria       ClassDeliverableCriterion[]
+
+  @@index([classId])
+  @@index([sourceTemplateId])
+  @@map("class_deliverables")
+}
+
+model ClassDeliverableCriterion {
+  id            String @id @default(cuid())
+  deliverableId String @map("deliverable_id")
+  criterionId   String @map("criterion_id")
+  sortOrder     Int    @default(0) @map("sort_order")
+
+  deliverable ClassDeliverable @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+  criterion   CriterionDef     @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+
+  @@unique([deliverableId, criterionId])
+  @@index([criterionId])
+  @@map("class_deliverable_criteria")
 }
 
 model AIReviewRun {
