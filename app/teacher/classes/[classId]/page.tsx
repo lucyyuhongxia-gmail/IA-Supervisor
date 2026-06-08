@@ -86,6 +86,18 @@ export default async function TeacherClassPage({
           criterion: true,
         },
       },
+      deliverables: {
+        where: { isArchived: false },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        include: {
+          criteria: {
+            orderBy: { sortOrder: "asc" },
+            include: {
+              criterion: true,
+            },
+          },
+        },
+      },
     },
   });
 
@@ -123,6 +135,7 @@ export default async function TeacherClassPage({
 
       <div className="flex flex-wrap gap-2 rounded-md border bg-card px-3 py-2 text-sm">
         <MetricPill label="Students" value={classRecord.enrollments.length} />
+        <MetricPill label="Deliverables" value={classRecord.deliverables.length} />
         <MetricPill label="Milestones" value={classRecord.milestones.length} />
         <MetricPill label="Criteria" value={classRecord.subject.criteria.length} />
       </div>
@@ -241,6 +254,64 @@ export default async function TeacherClassPage({
         </Card>
 
         <div className="grid content-start gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Submission plan</CardTitle>
+              <CardDescription>
+                Deliverables copied from the subject template. Student submission screens still use criteria until the next migration step.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {classRecord.deliverables.length > 0 ? (
+                <div className="grid gap-2">
+                  {classRecord.deliverables.map((deliverable) => (
+                    <div key={deliverable.id} className="rounded-md border px-3 py-2 text-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{deliverable.title}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {formatReviewMode(deliverable.reviewMode)}
+                            {deliverable.fileRequirement
+                              ? ` · ${deliverable.fileRequirement}`
+                              : ""}
+                          </p>
+                        </div>
+                        <p className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
+                          #{deliverable.sortOrder}
+                        </p>
+                      </div>
+                      {deliverable.criteria.length > 0 ? (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {deliverable.criteria.map((link) => (
+                            <span
+                              key={link.id}
+                              className="rounded-md border bg-background px-2 py-1 text-xs font-medium"
+                            >
+                              Criterion {link.criterion.code}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-xs text-amber-700">
+                          No criteria linked
+                        </p>
+                      )}
+                      {deliverable.description ? (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {deliverable.description}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No class deliverables have been copied yet. Re-run seed for demo classes or create a new class from an updated subject template.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Milestones</CardTitle>
@@ -495,6 +566,18 @@ function getStatusSummary(statuses: SubmissionStatus[]) {
       barClassName: "bg-slate-300",
     },
   ];
+}
+
+function formatReviewMode(value: string) {
+  switch (value) {
+    case "multi_criteria":
+      return "Multi-criteria review";
+    case "final_package":
+      return "Final package";
+    case "single_criterion":
+    default:
+      return "Single criterion review";
+  }
 }
 
 function AccessMessage({
