@@ -71,6 +71,18 @@ export default async function StudentClassPage({
           },
         },
       },
+      deliverables: {
+        where: { isArchived: false },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        include: {
+          criteria: {
+            orderBy: { sortOrder: "asc" },
+            include: {
+              criterion: true,
+            },
+          },
+        },
+      },
       teacher: { select: { name: true, email: true } },
     },
   });
@@ -278,6 +290,60 @@ export default async function StudentClassPage({
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-lg">Submission plan</CardTitle>
+          <CardDescription>
+            These are the files expected for this class. Upload screens still open by criterion while deliverable submission is being migrated.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {classRecord.deliverables.length > 0 ? (
+            <div className="grid gap-3">
+              {classRecord.deliverables.map((deliverable) => (
+                <div key={deliverable.id} className="rounded-md border p-3 text-sm">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-medium">{deliverable.title}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {formatReviewMode(deliverable.reviewMode)}
+                        {deliverable.fileRequirement
+                          ? ` · ${deliverable.fileRequirement}`
+                          : ""}
+                      </p>
+                    </div>
+                    <span className="w-fit rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
+                      #{deliverable.sortOrder}
+                    </span>
+                  </div>
+                  {deliverable.criteria.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {deliverable.criteria.map((link) => (
+                        <span
+                          key={link.id}
+                          className="rounded-md border bg-background px-2 py-1 text-xs font-medium"
+                        >
+                          Criterion {link.criterion.code}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {deliverable.description ? (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {deliverable.description}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              This class does not have a submission plan yet.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-lg">Criterion submissions</CardTitle>
           <CardDescription>
             Open one criterion at a time to upload files, add a note, and view version history.
@@ -467,6 +533,18 @@ function getCriterionActionLabel(status: string, criterionCode: string) {
       return `Check Criterion ${criterionCode}`;
     default:
       return `Open Criterion ${criterionCode}`;
+  }
+}
+
+function formatReviewMode(value: string) {
+  switch (value) {
+    case "multi_criteria":
+      return "Multi-criteria review";
+    case "final_package":
+      return "Final package";
+    case "single_criterion":
+    default:
+      return "Single criterion review";
   }
 }
 
