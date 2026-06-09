@@ -65,6 +65,30 @@ export default async function TeacherStudentPage({
           },
         },
       },
+      deliverableSlots: {
+        include: {
+          deliverable: {
+            include: {
+              criteria: {
+                orderBy: { sortOrder: "asc" },
+                include: {
+                  criterion: true,
+                },
+              },
+            },
+          },
+          latestVersion: {
+            include: {
+              fileAssets: {
+                orderBy: { createdAt: "desc" },
+              },
+            },
+          },
+          fileAssets: {
+            orderBy: { createdAt: "desc" },
+          },
+        },
+      },
       submissionSlots: {
         include: {
           criterion: true,
@@ -97,6 +121,9 @@ export default async function TeacherStudentPage({
 
   const sortedSlots = [...enrollment.submissionSlots].sort(
     (a, b) => a.criterion.sortOrder - b.criterion.sortOrder,
+  );
+  const sortedDeliverableSlots = [...enrollment.deliverableSlots].sort(
+    (a, b) => a.deliverable.sortOrder - b.deliverable.sortOrder,
   );
   const reviewFocusSlots = sortedSlots.filter((slot) =>
     ["submitted", "under_review", "revision_needed"].includes(slot.status),
@@ -182,6 +209,67 @@ export default async function TeacherStudentPage({
           </div>
         </CardContent>
       </Card>
+
+      {sortedDeliverableSlots.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Submission plan</CardTitle>
+            <CardDescription>
+              Deliverable-level files expected for this student.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {sortedDeliverableSlots.map((slot) => {
+                const latestVersion = slot.latestVersion;
+                const files =
+                  latestVersion?.fileAssets.length
+                    ? latestVersion.fileAssets
+                    : slot.fileAssets;
+
+                return (
+                  <div key={slot.id} className="rounded-md border p-3 text-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium">{slot.deliverable.title}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {slot.deliverable.criteria
+                            .map((link) => `Criterion ${link.criterion.code}`)
+                            .join(", ") || "General deliverable"}
+                        </p>
+                      </div>
+                      <p
+                        className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(slot.status)}`}
+                      >
+                        {formatSubmissionStatus(slot.status)}
+                      </p>
+                    </div>
+                    {latestVersion ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Latest v{latestVersion.versionNumber} ·{" "}
+                        {latestVersion.submittedAt.toLocaleString()}
+                      </p>
+                    ) : null}
+                    {files.length > 0 ? (
+                      <div className="mt-2 grid gap-1">
+                        {files.map((fileAsset) => (
+                          <a
+                            key={fileAsset.id}
+                            href={`/api/files/${fileAsset.id}`}
+                            className="truncate text-primary underline-offset-4 hover:underline"
+                          >
+                            {fileAsset.originalName} · {formatFileSize(fileAsset.sizeBytes)}
+                          </a>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <ConsistencyReviewPanel
         classId={enrollment.class.id}

@@ -91,6 +91,21 @@ export default async function StudentDashboardPage() {
           },
         },
       },
+      deliverableSlots: {
+        include: {
+          deliverable: {
+            include: {
+              criteria: {
+                orderBy: { sortOrder: "asc" },
+                include: {
+                  criterion: true,
+                },
+              },
+            },
+          },
+          latestVersion: true,
+        },
+      },
     },
   });
 
@@ -98,8 +113,13 @@ export default async function StudentDashboardPage() {
     const sortedSlots = [...enrollment.submissionSlots].sort(
       (a, b) => a.criterion.sortOrder - b.criterion.sortOrder,
     );
+    const sortedDeliverableSlots = [...enrollment.deliverableSlots].sort(
+      (a, b) => a.deliverable.sortOrder - b.deliverable.sortOrder,
+    );
+    const progressSlots =
+      sortedDeliverableSlots.length > 0 ? sortedDeliverableSlots : sortedSlots;
     const statusSummary = getStatusSummary(
-      sortedSlots.map((slot) => slot.status),
+      progressSlots.map((slot) => slot.status),
     );
     const nextMilestone = getNextActionMilestone(
       enrollment.class.milestones,
@@ -112,6 +132,7 @@ export default async function StudentDashboardPage() {
     return {
       enrollment,
       sortedSlots,
+      sortedDeliverableSlots,
       statusSummary,
       nextMilestone,
       revisionSlots,
@@ -258,7 +279,7 @@ export default async function StudentDashboardPage() {
         </div>
         {classViews.length > 0 ? (
           classViews.map((classView) => {
-            const { enrollment, sortedSlots, statusSummary } = classView;
+            const { enrollment, sortedSlots, sortedDeliverableSlots, statusSummary } = classView;
 
             return (
               <Card key={enrollment.id}>
@@ -280,18 +301,57 @@ export default async function StudentDashboardPage() {
                               key={item.status}
                               className={item.barClassName}
                               style={{
-                                width: `${(item.count / Math.max(sortedSlots.length, 1)) * 100}%`,
+                                width: `${(item.count / Math.max(sortedDeliverableSlots.length || sortedSlots.length, 1)) * 100}%`,
                               }}
                             />
                           ))}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {getClassProgressLabel(statusSummary, sortedSlots.length)}
+                        {getClassProgressLabel(
+                          statusSummary,
+                          sortedDeliverableSlots.length || sortedSlots.length,
+                        )}
                       </p>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="grid gap-4 p-4 pt-0">
+                  {sortedDeliverableSlots.length > 0 ? (
+                    <div>
+                      <p className="mb-2 text-sm font-medium">Submission plan</p>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {sortedDeliverableSlots.map((slot) => (
+                          <div
+                            key={slot.id}
+                            className="rounded-md border px-3 py-2 text-sm"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="font-medium">{slot.deliverable.title}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {slot.deliverable.criteria
+                                    .map((link) => `Criterion ${link.criterion.code}`)
+                                    .join(", ") || "General deliverable"}
+                                </p>
+                              </div>
+                              <span
+                                className={`inline-flex w-fit rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(slot.status)}`}
+                              >
+                                {formatSubmissionStatus(slot.status)}
+                              </span>
+                            </div>
+                            {slot.latestVersion ? (
+                              <p className="mt-2 text-xs text-muted-foreground">
+                                Latest v{slot.latestVersion.versionNumber} ·{" "}
+                                {slot.latestVersion.submittedAt.toLocaleDateString()}
+                              </p>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div>
                     <p className="mb-2 text-sm font-medium">Criteria</p>
                     <div className="grid gap-2">

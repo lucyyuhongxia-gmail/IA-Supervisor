@@ -81,6 +81,17 @@ export default async function StudentClassPage({
               criterion: true,
             },
           },
+          submissionSlots: {
+            where: { enrollmentId: enrollment.id },
+            include: {
+              latestVersion: {
+                include: {
+                  fileAssets: { orderBy: { createdAt: "desc" } },
+                },
+              },
+              fileAssets: { orderBy: { createdAt: "desc" } },
+            },
+          },
         },
       },
       teacher: { select: { name: true, email: true } },
@@ -292,47 +303,77 @@ export default async function StudentClassPage({
         <CardHeader>
           <CardTitle className="text-lg">Submission plan</CardTitle>
           <CardDescription>
-            These are the files expected for this class. Upload screens still open by criterion while deliverable submission is being migrated.
+            Files expected for this class, copied from the subject template.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {classRecord.deliverables.length > 0 ? (
             <div className="grid gap-3">
-              {classRecord.deliverables.map((deliverable) => (
-                <div key={deliverable.id} className="rounded-md border p-3 text-sm">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <p className="font-medium">{deliverable.title}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {formatReviewMode(deliverable.reviewMode)}
-                        {deliverable.fileRequirement
-                          ? ` · ${deliverable.fileRequirement}`
-                          : ""}
-                      </p>
-                    </div>
-                    <span className="w-fit rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
-                      #{deliverable.sortOrder}
-                    </span>
-                  </div>
-                  {deliverable.criteria.length > 0 ? (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {deliverable.criteria.map((link) => (
+              {classRecord.deliverables.map((deliverable) => {
+                const deliverableSlot = deliverable.submissionSlots[0];
+                const latestVersion = deliverableSlot?.latestVersion;
+                const latestFiles =
+                  latestVersion?.fileAssets.length
+                    ? latestVersion.fileAssets
+                    : deliverableSlot?.fileAssets ?? [];
+
+                return (
+                  <div key={deliverable.id} className="rounded-md border p-3 text-sm">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="font-medium">{deliverable.title}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {formatReviewMode(deliverable.reviewMode)}
+                          {deliverable.fileRequirement
+                            ? ` · ${deliverable.fileRequirement}`
+                            : ""}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 sm:justify-end">
                         <span
-                          key={link.id}
-                          className="rounded-md border bg-background px-2 py-1 text-xs font-medium"
+                          className={`w-fit rounded-md border px-2 py-1 text-xs font-semibold ${getCriterionStatusTone(deliverableSlot?.status ?? "not_started")}`}
                         >
-                          Criterion {link.criterion.code}
+                          {deliverableSlot
+                            ? formatSubmissionStatus(deliverableSlot.status)
+                            : "Not Started"}
                         </span>
-                      ))}
+                        <span className="w-fit rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
+                          #{deliverable.sortOrder}
+                        </span>
+                      </div>
                     </div>
-                  ) : null}
-                  {deliverable.description ? (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {deliverable.description}
-                    </p>
-                  ) : null}
-                </div>
-              ))}
+                    {latestVersion ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Latest v{latestVersion.versionNumber} ·{" "}
+                        {latestVersion.submittedAt.toLocaleString()}
+                      </p>
+                    ) : null}
+                    {latestFiles.length > 0 ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {latestFiles[0]?.originalName} ·{" "}
+                        {latestFiles[0] ? formatFileSize(latestFiles[0].sizeBytes) : ""}
+                      </p>
+                    ) : null}
+                    {deliverable.criteria.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {deliverable.criteria.map((link) => (
+                          <span
+                            key={link.id}
+                            className="rounded-md border bg-background px-2 py-1 text-xs font-medium"
+                          >
+                            Criterion {link.criterion.code}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                    {deliverable.description ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {deliverable.description}
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">

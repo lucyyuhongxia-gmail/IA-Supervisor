@@ -78,6 +78,12 @@ export default async function TeacherClassPage({
               latestVersion: true,
             },
           },
+          deliverableSlots: {
+            include: {
+              deliverable: true,
+              latestVersion: true,
+            },
+          },
         },
       },
       milestones: {
@@ -94,6 +100,11 @@ export default async function TeacherClassPage({
             orderBy: { sortOrder: "asc" },
             include: {
               criterion: true,
+            },
+          },
+          submissionSlots: {
+            include: {
+              latestVersion: true,
             },
           },
         },
@@ -155,10 +166,17 @@ export default async function TeacherClassPage({
                   const sortedSlots = [...enrollment.submissionSlots].sort(
                     (a, b) => a.criterion.sortOrder - b.criterion.sortOrder,
                   );
-                  const statusSummary = getStatusSummary(
-                    sortedSlots.map((slot) => slot.status),
+                  const sortedDeliverableSlots = [...enrollment.deliverableSlots].sort(
+                    (a, b) => a.deliverable.sortOrder - b.deliverable.sortOrder,
                   );
-                  const latestSubmission = sortedSlots
+                  const progressSlots =
+                    sortedDeliverableSlots.length > 0
+                      ? sortedDeliverableSlots
+                      : sortedSlots;
+                  const statusSummary = getStatusSummary(
+                    progressSlots.map((slot) => slot.status),
+                  );
+                  const latestSubmission = progressSlots
                     .map((slot) => slot.latestVersion?.submittedAt)
                     .filter((submittedAt): submittedAt is Date => Boolean(submittedAt))
                     .sort((a, b) => b.getTime() - a.getTime())[0];
@@ -205,7 +223,7 @@ export default async function TeacherClassPage({
                                 key={item.status}
                                 className={item.barClassName}
                                 style={{
-                                  width: `${(item.count / sortedSlots.length) * 100}%`,
+                                  width: `${(item.count / Math.max(progressSlots.length, 1)) * 100}%`,
                                 }}
                               />
                             ))}
@@ -219,6 +237,21 @@ export default async function TeacherClassPage({
                             </div>
                           ))}
                         </div>
+
+                        {sortedDeliverableSlots.length > 0 ? (
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {sortedDeliverableSlots.map((slot) => (
+                              <div key={slot.id} className="rounded-md bg-background p-2 text-sm">
+                                <p className="truncate font-medium">{slot.deliverable.title}</p>
+                                <p
+                                  className={`mt-1 inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(slot.status)}`}
+                                >
+                                  {formatSubmissionStatus(slot.status)}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
 
                         <div className="grid gap-2 sm:grid-cols-5">
                           {classRecord.subject.criteria.map((criterion) => {
@@ -280,6 +313,18 @@ export default async function TeacherClassPage({
                           #{deliverable.sortOrder}
                         </p>
                       </div>
+                      {classRecord.enrollments.length > 0 ? (
+                        <div className="mt-2 grid grid-cols-4 gap-1">
+                          {getStatusSummary(
+                            deliverable.submissionSlots.map((slot) => slot.status),
+                          ).map((item) => (
+                            <div key={item.status} className="rounded-md bg-muted/50 px-2 py-1">
+                              <p className="text-sm font-semibold">{item.count}</p>
+                              <p className="text-[11px] text-muted-foreground">{item.label}</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
                       {deliverable.criteria.length > 0 ? (
                         <div className="mt-2 flex flex-wrap gap-1">
                           {deliverable.criteria.map((link) => (

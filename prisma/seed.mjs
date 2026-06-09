@@ -165,12 +165,20 @@ async function main() {
   const passwordHash = await bcrypt.hash("password123", 10);
 
   const subject = await prisma.subject.upsert({
-    where: { slug: "ib-computer-science" },
-    update: { name: "IB Computer Science", isArchived: false },
+    where: { slug: "ib-computer-science-ia" },
+    update: { name: "IB Computer Science IA", isArchived: false },
     create: {
-      name: "IB Computer Science",
-      slug: "ib-computer-science",
+      name: "IB Computer Science IA",
+      slug: "ib-computer-science-ia",
     },
+  });
+
+  await prisma.subject.updateMany({
+    where: {
+      slug: "ib-computer-science",
+      classes: { none: {} },
+    },
+    data: { isArchived: true },
   });
 
   const assessmentReference = await prisma.assessmentReference.upsert({

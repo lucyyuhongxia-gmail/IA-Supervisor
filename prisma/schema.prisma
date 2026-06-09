@@ -433,6 +433,7 @@ model ClassDeliverable {
   criteria        ClassDeliverableCriterion[]
   submissionSlots DeliverableSubmissionSlot[]
 
+  @@unique([classId, sourceTemplateId])
   @@index([classId])
   @@index([sourceTemplateId])
   @@map("class_deliverables")
