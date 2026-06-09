@@ -105,8 +105,8 @@ model Subject {
   criteria                  CriterionDef[]
   milestoneTemplates        SubjectMilestoneTemplate[]
   deliverableTemplates      SubjectDeliverableTemplate[]
-  activeAssessmentReference AssessmentReference?  @relation("SubjectActiveAssessmentReference", fields: [activeAssessmentReferenceId], references: [id], onDelete: SetNull)
-  assessmentReferences      AssessmentReference[] @relation("SubjectAssessmentReferences")
+  activeAssessmentReference AssessmentReference?         @relation("SubjectActiveAssessmentReference", fields: [activeAssessmentReferenceId], references: [id], onDelete: SetNull)
+  assessmentReferences      AssessmentReference[]        @relation("SubjectAssessmentReferences")
 
   @@index([activeAssessmentReferenceId])
   @@map("subjects")
@@ -157,18 +157,18 @@ model CriterionDef {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  subject                 Subject              @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  submissionSlots         SubmissionSlot[]
-  milestones              Milestone[]
-  milestoneTemplates      SubjectMilestoneTemplate[]
+  subject                  Subject                               @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  submissionSlots          SubmissionSlot[]
+  milestones               Milestone[]
+  milestoneTemplates       SubjectMilestoneTemplate[]
   deliverableTemplateLinks SubjectDeliverableTemplateCriterion[]
-  classDeliverableLinks   ClassDeliverableCriterion[]
-  aiReviewRuns            AIReviewRun[]
-  semanticExtractions     SemanticExtraction[]
-  sourceConsistencyChecks ConsistencyCheck[]   @relation("ConsistencyCheckSourceCriterion")
-  targetConsistencyChecks ConsistencyCheck[]   @relation("ConsistencyCheckTargetCriterion")
-  markingSnapshots        MarkingSnapshot[]
-  deltaReviews            DeltaReview[]
+  classDeliverableLinks    ClassDeliverableCriterion[]
+  aiReviewRuns             AIReviewRun[]
+  semanticExtractions      SemanticExtraction[]
+  sourceConsistencyChecks  ConsistencyCheck[]                    @relation("ConsistencyCheckSourceCriterion")
+  targetConsistencyChecks  ConsistencyCheck[]                    @relation("ConsistencyCheckTargetCriterion")
+  markingSnapshots         MarkingSnapshot[]
+  deltaReviews             DeltaReview[]
 
   @@unique([subjectId, code])
   @@index([subjectId])
@@ -204,9 +204,10 @@ model Enrollment {
   classId    String   @map("class_id")
   enrolledAt DateTime @default(now()) @map("enrolled_at")
 
-  student           User               @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  class             Class              @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student           User                        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class             Class                       @relation(fields: [classId], references: [id], onDelete: Cascade)
   submissionSlots   SubmissionSlot[]
+  deliverableSlots  DeliverableSubmissionSlot[]
   consistencyChecks ConsistencyCheck[]
 
   @@unique([studentId, classId])
@@ -271,24 +272,73 @@ model SubmissionVersion {
   @@map("submission_versions")
 }
 
-model FileAsset {
-  id                  String   @id @default(cuid())
-  submissionSlotId    String?  @map("submission_slot_id")
-  submissionVersionId String?  @map("submission_version_id")
-  ownerId             String   @map("owner_id")
-  originalName        String   @map("original_name")
-  storedName          String   @map("stored_name")
-  storagePath         String   @map("storage_path")
-  mimeType            String   @map("mime_type")
-  sizeBytes           Int      @map("size_bytes")
-  createdAt           DateTime @default(now()) @map("created_at")
+model DeliverableSubmissionSlot {
+  id              String           @id @default(cuid())
+  enrollmentId    String           @map("enrollment_id")
+  deliverableId   String           @map("deliverable_id")
+  latestVersionId String?          @unique @map("latest_version_id")
+  status          SubmissionStatus @default(not_started)
+  notes           String?
+  teacherFeedback String?          @map("teacher_feedback")
+  reviewedAt      DateTime?        @map("reviewed_at")
+  submittedAt     DateTime?        @map("submitted_at")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
 
-  submissionSlot    SubmissionSlot?    @relation(fields: [submissionSlotId], references: [id], onDelete: Cascade)
-  submissionVersion SubmissionVersion? @relation(fields: [submissionVersionId], references: [id], onDelete: Cascade)
-  owner             User               @relation("FileOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  enrollment    Enrollment                     @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  deliverable   ClassDeliverable               @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+  fileAssets    FileAsset[]
+  versions      DeliverableSubmissionVersion[] @relation("SlotDeliverableSubmissionVersions")
+  latestVersion DeliverableSubmissionVersion?  @relation("LatestDeliverableSubmissionVersion", fields: [latestVersionId], references: [id], onDelete: SetNull)
+
+  @@unique([enrollmentId, deliverableId])
+  @@index([deliverableId])
+  @@map("deliverable_submission_slots")
+}
+
+model DeliverableSubmissionVersion {
+  id                          String    @id @default(cuid())
+  deliverableSubmissionSlotId String    @map("deliverable_submission_slot_id")
+  versionNumber               Int       @map("version_number")
+  notes                       String?
+  teacherFeedback             String?   @map("teacher_feedback")
+  reviewedAt                  DateTime? @map("reviewed_at")
+  submittedAt                 DateTime  @default(now()) @map("submitted_at")
+  createdAt                   DateTime  @default(now()) @map("created_at")
+
+  deliverableSubmissionSlot DeliverableSubmissionSlot  @relation("SlotDeliverableSubmissionVersions", fields: [deliverableSubmissionSlotId], references: [id], onDelete: Cascade)
+  latestForSlot             DeliverableSubmissionSlot? @relation("LatestDeliverableSubmissionVersion")
+  fileAssets                FileAsset[]
+
+  @@unique([deliverableSubmissionSlotId, versionNumber])
+  @@index([deliverableSubmissionSlotId])
+  @@map("deliverable_submission_versions")
+}
+
+model FileAsset {
+  id                             String   @id @default(cuid())
+  submissionSlotId               String?  @map("submission_slot_id")
+  submissionVersionId            String?  @map("submission_version_id")
+  deliverableSubmissionSlotId    String?  @map("deliverable_submission_slot_id")
+  deliverableSubmissionVersionId String?  @map("deliverable_submission_version_id")
+  ownerId                        String   @map("owner_id")
+  originalName                   String   @map("original_name")
+  storedName                     String   @map("stored_name")
+  storagePath                    String   @map("storage_path")
+  mimeType                       String   @map("mime_type")
+  sizeBytes                      Int      @map("size_bytes")
+  createdAt                      DateTime @default(now()) @map("created_at")
+
+  submissionSlot               SubmissionSlot?               @relation(fields: [submissionSlotId], references: [id], onDelete: Cascade)
+  submissionVersion            SubmissionVersion?            @relation(fields: [submissionVersionId], references: [id], onDelete: Cascade)
+  deliverableSubmissionSlot    DeliverableSubmissionSlot?    @relation(fields: [deliverableSubmissionSlotId], references: [id], onDelete: Cascade)
+  deliverableSubmissionVersion DeliverableSubmissionVersion? @relation(fields: [deliverableSubmissionVersionId], references: [id], onDelete: Cascade)
+  owner                        User                          @relation("FileOwner", fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@index([submissionSlotId])
   @@index([submissionVersionId])
+  @@index([deliverableSubmissionSlotId])
+  @@index([deliverableSubmissionVersionId])
   @@index([ownerId])
   @@map("file_assets")
 }
@@ -343,9 +393,9 @@ model SubjectDeliverableTemplate {
   createdAt       DateTime              @default(now()) @map("created_at")
   updatedAt       DateTime              @updatedAt @map("updated_at")
 
-  subject           Subject                              @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subject           Subject                               @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   criteria          SubjectDeliverableTemplateCriterion[]
-  classDeliverables ClassDeliverable[]                   @relation("ClassDeliverableSourceTemplate")
+  classDeliverables ClassDeliverable[]                    @relation("ClassDeliverableSourceTemplate")
 
   @@index([subjectId])
   @@map("subject_deliverable_templates")
@@ -378,9 +428,10 @@ model ClassDeliverable {
   createdAt        DateTime              @default(now()) @map("created_at")
   updatedAt        DateTime              @updatedAt @map("updated_at")
 
-  class          Class                         @relation(fields: [classId], references: [id], onDelete: Cascade)
-  sourceTemplate SubjectDeliverableTemplate?   @relation("ClassDeliverableSourceTemplate", fields: [sourceTemplateId], references: [id], onDelete: SetNull)
-  criteria       ClassDeliverableCriterion[]
+  class           Class                       @relation(fields: [classId], references: [id], onDelete: Cascade)
+  sourceTemplate  SubjectDeliverableTemplate? @relation("ClassDeliverableSourceTemplate", fields: [sourceTemplateId], references: [id], onDelete: SetNull)
+  criteria        ClassDeliverableCriterion[]
+  submissionSlots DeliverableSubmissionSlot[]
 
   @@index([classId])
   @@index([sourceTemplateId])

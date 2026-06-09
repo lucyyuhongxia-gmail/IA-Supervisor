@@ -48,7 +48,13 @@ export async function ensureEnrollmentSubmissionSlots({
 }) {
   const classRecord = await prisma.class.findUnique({
     where: { id: classId },
-    select: { subjectId: true },
+    select: {
+      subjectId: true,
+      deliverables: {
+        where: { isArchived: false },
+        select: { id: true },
+      },
+    },
   });
 
   if (!classRecord) {
@@ -60,8 +66,8 @@ export async function ensureEnrollmentSubmissionSlots({
     select: { id: true },
   });
 
-  await Promise.all(
-    criteria.map((criterion) =>
+  await Promise.all([
+    ...criteria.map((criterion) =>
       prisma.submissionSlot.upsert({
         where: {
           enrollmentId_criterionId: {
@@ -76,7 +82,22 @@ export async function ensureEnrollmentSubmissionSlots({
         },
       }),
     ),
-  );
+    ...classRecord.deliverables.map((deliverable) =>
+      prisma.deliverableSubmissionSlot.upsert({
+        where: {
+          enrollmentId_deliverableId: {
+            enrollmentId,
+            deliverableId: deliverable.id,
+          },
+        },
+        update: {},
+        create: {
+          enrollmentId,
+          deliverableId: deliverable.id,
+        },
+      }),
+    ),
+  ]);
 }
 
 export async function ensureClassSubmissionSlots(classId: string) {

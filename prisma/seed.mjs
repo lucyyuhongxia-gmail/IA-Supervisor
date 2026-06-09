@@ -394,6 +394,10 @@ async function main() {
               criteria: true,
             },
           },
+          deliverables: {
+            where: { isArchived: false },
+            select: { id: true },
+          },
         },
       },
     },
@@ -412,6 +416,22 @@ async function main() {
         create: {
           enrollmentId: enrollment.id,
           criterionId: criterion.id,
+        },
+      });
+    }
+
+    for (const deliverable of enrollment.class.deliverables) {
+      await prisma.deliverableSubmissionSlot.upsert({
+        where: {
+          enrollmentId_deliverableId: {
+            enrollmentId: enrollment.id,
+            deliverableId: deliverable.id,
+          },
+        },
+        update: {},
+        create: {
+          enrollmentId: enrollment.id,
+          deliverableId: deliverable.id,
         },
       });
     }

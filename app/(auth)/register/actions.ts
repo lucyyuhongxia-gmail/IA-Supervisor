@@ -151,12 +151,29 @@ export async function registerAction(formData: FormData): Promise<RegisterState>
           where: { subjectId: classRecord.subjectId },
           select: { id: true },
         });
+        const deliverables = await tx.classDeliverable.findMany({
+          where: {
+            classId: classRecord.id,
+            isArchived: false,
+          },
+          select: { id: true },
+        });
 
         if (criteria.length > 0) {
           await tx.submissionSlot.createMany({
             data: criteria.map((criterion) => ({
               enrollmentId: enrollment.id,
               criterionId: criterion.id,
+            })),
+            skipDuplicates: true,
+          });
+        }
+
+        if (deliverables.length > 0) {
+          await tx.deliverableSubmissionSlot.createMany({
+            data: deliverables.map((deliverable) => ({
+              enrollmentId: enrollment.id,
+              deliverableId: deliverable.id,
             })),
             skipDuplicates: true,
           });
