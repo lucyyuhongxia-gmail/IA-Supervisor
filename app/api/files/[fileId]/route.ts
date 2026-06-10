@@ -44,6 +44,28 @@ export async function GET(
           },
         },
       },
+      deliverableSubmissionSlot: {
+        include: {
+          enrollment: {
+            include: {
+              class: { select: { teacherId: true } },
+            },
+          },
+        },
+      },
+      deliverableSubmissionVersion: {
+        include: {
+          deliverableSubmissionSlot: {
+            include: {
+              enrollment: {
+                include: {
+                  class: { select: { teacherId: true } },
+                },
+              },
+            },
+          },
+        },
+      },
     },
   });
 
@@ -51,17 +73,23 @@ export async function GET(
     return new NextResponse("Not found", { status: 404 });
   }
 
-  const slot = fileAsset.submissionSlot ?? fileAsset.submissionVersion?.submissionSlot;
+  const submissionSlot =
+    fileAsset.submissionSlot ?? fileAsset.submissionVersion?.submissionSlot;
+  const deliverableSlot =
+    fileAsset.deliverableSubmissionSlot ??
+    fileAsset.deliverableSubmissionVersion?.deliverableSubmissionSlot;
 
-  if (!slot) {
+  if (!submissionSlot && !deliverableSlot) {
     return new NextResponse("Not found", { status: 404 });
   }
 
   const canAccess =
     user.role === "admin" ||
     fileAsset.ownerId === user.id ||
-    slot.enrollment.studentId === user.id ||
-    slot.enrollment.class.teacherId === user.id;
+    submissionSlot?.enrollment.studentId === user.id ||
+    submissionSlot?.enrollment.class.teacherId === user.id ||
+    deliverableSlot?.enrollment.studentId === user.id ||
+    deliverableSlot?.enrollment.class.teacherId === user.id;
 
   if (!canAccess) {
     return new NextResponse("Forbidden", { status: 403 });

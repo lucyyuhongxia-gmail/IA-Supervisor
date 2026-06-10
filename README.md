@@ -73,13 +73,29 @@ AI review is advisory only. Teacher judgement remains final.
 
    This command only runs against local database URLs. It clears workflow data, removes local uploads except `uploads/.gitkeep`, recreates demo users, creates a demo class, enrolls a demo student, and creates a fixed class invite code.
 
-7. Start the app:
+7. Optional: load the official IB CS IA 2027 example submissions:
+
+   ```bash
+   npm run demo:official-examples
+   ```
+
+   This command only runs against local database URLs. It expects the official example files under `docs/test/IA-example for 2027/`, then creates an `IB CS IA 2027 Official Examples` class, 8 student accounts, submitted criterion versions, deliverable versions, and file evidence linked to the local example files. It is idempotent and does not clear unrelated class data.
+
+   Default test accounts:
+
+   | Role | Email | Password |
+   | --- | --- | --- |
+   | Teacher | `lucy_yu@ulink.cn` or `teacher@example.com` fallback | `password123` |
+   | Student 1 | `official-example-1@student.test` | `password123` |
+   | Student 8 | `official-example-8@student.test` | `password123` |
+
+8. Start the app:
 
    ```bash
    npm run dev
    ```
 
-8. Open:
+9. Open:
 
    - Login: [http://localhost:3000/login](http://localhost:3000/login)
    - Register: [http://localhost:3000/register](http://localhost:3000/register)
@@ -238,6 +254,7 @@ npm run build
 npm run lint
 npm run ai-review:evaluate -- --slot-id <submissionSlotId>
 npm run demo:reset
+npm run demo:official-examples
 npx prisma migrate dev
 npx prisma db seed
 npx prisma studio

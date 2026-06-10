@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "ai-review:evaluate": "node scripts/evaluate-ai-review.mjs",
     "demo:reset": "node scripts/demo-reset.mjs",
+    "demo:official-examples": "node scripts/seed-official-ia-examples.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"
