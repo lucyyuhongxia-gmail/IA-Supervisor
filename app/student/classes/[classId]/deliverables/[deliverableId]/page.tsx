@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { FeedbackDisplay } from "@/components/feedback-display";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/current-user";
@@ -105,6 +106,9 @@ export default async function StudentDeliverableSubmissionPage({
   const latestFiles =
     latestVersion?.fileAssets.length ? latestVersion.fileAssets : slot.fileAssets;
   const latestArtifactUrl = latestVersion?.artifactUrl ?? slot.artifactUrl;
+  const teacherFeedback =
+    latestVersion?.teacherFeedback ?? slot.teacherFeedback;
+  const reviewedAt = latestVersion?.reviewedAt ?? slot.reviewedAt;
   const statusLabel = formatSubmissionStatus(slot.status);
   const needsRevision = slot.status === "revision_needed";
   const allowsLink = isLinkDeliverable(deliverable.fileRequirement);
@@ -142,6 +146,43 @@ export default async function StudentDeliverableSubmissionPage({
           </div>
         </div>
       </section>
+
+      {teacherFeedback ? (
+        <Card className={needsRevision ? "border-amber-200 bg-amber-50" : "border-blue-200 bg-blue-50"}>
+          <CardHeader>
+            <CardTitle className={`text-lg ${needsRevision ? "text-amber-950" : "text-blue-950"}`}>
+              {needsRevision ? "Revision needed" : "Teacher feedback"}
+            </CardTitle>
+            <CardDescription className={needsRevision ? "text-amber-900" : "text-blue-900"}>
+              {needsRevision
+                ? "Read the feedback, revise this deliverable, then submit a new version."
+                : "This feedback is attached to the latest reviewed version."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border bg-white/70 p-4">
+              <FeedbackDisplay content={teacherFeedback} />
+              {reviewedAt ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Reviewed {reviewedAt.toLocaleString()}
+                </p>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
+      ) : needsRevision ? (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardHeader>
+            <CardTitle className="text-lg text-amber-950">
+              Revision needed
+            </CardTitle>
+            <CardDescription className="text-amber-900">
+              Your teacher requested a revision, but no student-visible feedback
+              has been sent for this deliverable yet.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

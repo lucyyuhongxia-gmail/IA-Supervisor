@@ -25,6 +25,13 @@ const updateTeacherFeedbackSchema = z.object({
   teacherFeedback: z.string().trim().max(8000).optional(),
 });
 
+const updateDeliverableTeacherFeedbackSchema = z.object({
+  classId: z.string().min(1),
+  deliverableSlotId: z.string().min(1),
+  status: z.enum(["submitted", "under_review", "revision_needed", "passed"]),
+  teacherFeedback: z.string().trim().max(8000).optional(),
+});
+
 const reopenFinalSubmissionSchema = z.object({
   classId: z.string().min(1),
   slotId: z.string().min(1),
@@ -366,6 +373,186 @@ export async function updateTeacherFeedbackAction(
   revalidatePath(`/teacher/classes/${parsed.data.classId}/students/${slot.enrollmentId}/criteria/${slot.criterionId}`);
   revalidatePath(`/student/classes/${parsed.data.classId}`);
   revalidatePath(`/student/classes/${parsed.data.classId}/criteria/${slot.criterionId}`);
+  revalidatePath("/student/dashboard");
+
+  return {
+    success: shouldSendFeedback
+      ? "Feedback sent to the student."
+      : "Feedback saved as a teacher draft.",
+  };
+}
+
+export async function updateDeliverableTeacherFeedbackAction(
+  _state: TeacherFeedbackState,
+  formData: FormData,
+): Promise<TeacherFeedbackState> {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== "teacher") {
+    return { error: "Only teacher accounts can review submissions." };
+  }
+
+  const parsed = updateDeliverableTeacherFeedbackSchema.safeParse({
+    classId: formData.get("classId"),
+    deliverableSlotId: formData.get("deliverableSlotId"),
+    status: formData.get("status"),
+    teacherFeedback: formData.get("teacherFeedback") || undefined,
+  });
+
+  if (!parsed.success) {
+    return {
+      error: parsed.error.errors[0]?.message ?? "Check the review form.",
+    };
+  }
+
+  if (
+    !(teacherReviewStatuses as readonly SubmissionStatus[]).includes(
+      parsed.data.status,
+    )
+  ) {
+    return { error: "This status cannot be set by a teacher review." };
+  }
+
+  const slot = await prisma.deliverableSubmissionSlot.findFirst({
+    where: {
+      id: parsed.data.deliverableSlotId,
+      enrollment: {
+        classId: parsed.data.classId,
+        class: {
+          teacherId: user.id,
+        },
+      },
+    },
+    select: {
+      id: true,
+      deliverableId: true,
+      enrollmentId: true,
+      latestVersionId: true,
+      status: true,
+      teacherFeedback: true,
+      deliverable: {
+        select: {
+          title: true,
+          criteria: {
+            select: {
+              criterionId: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!slot) {
+    return { error: "Deliverable submission slot not found." };
+  }
+
+  if (slot.status === "final_submitted") {
+    return {
+      error:
+        "Final-submitted deliverables must be reopened before review status can change.",
+    };
+  }
+
+  const reviewedAt = new Date();
+  const nextFeedback = parsed.data.teacherFeedback ?? null;
+  const trimmedFeedback = nextFeedback?.trim() ?? "";
+  const shouldSendFeedback =
+    parsed.data.status === "revision_needed" || parsed.data.status === "passed";
+
+  if (shouldSendFeedback && !trimmedFeedback) {
+    return {
+      error:
+        "Add feedback before sending a revision request or marking this deliverable passed.",
+    };
+  }
+
+  const studentVisibleFeedback = shouldSendFeedback
+    ? trimmedFeedback
+    : slot.teacherFeedback;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.deliverableSubmissionSlot.update({
+      where: { id: slot.id },
+      data: {
+        status: parsed.data.status,
+        teacherFeedback: studentVisibleFeedback,
+        reviewedAt,
+      },
+    });
+
+    if (slot.latestVersionId) {
+      await tx.deliverableSubmissionVersion.update({
+        where: { id: slot.latestVersionId },
+        data: {
+          teacherFeedback: studentVisibleFeedback,
+          reviewedAt,
+        },
+      });
+    }
+
+    if (slot.status !== parsed.data.status) {
+      await createAuditLog(
+        {
+          actorId: user.id,
+          actorRole: user.role as UserRole,
+          entityType: "deliverable_submission_slot",
+          entityId: slot.id,
+          action: "deliverable_review.status_changed",
+          fromState: slot.status,
+          toState: parsed.data.status,
+          metadata: {
+            classId: parsed.data.classId,
+            enrollmentId: slot.enrollmentId,
+            deliverableId: slot.deliverableId,
+            deliverableTitle: slot.deliverable.title,
+            linkedCriterionIds: slot.deliverable.criteria.map(
+              (link) => link.criterionId,
+            ),
+            deliverableSubmissionVersionId: slot.latestVersionId,
+          },
+        },
+        tx,
+      );
+    }
+
+    if ((slot.teacherFeedback ?? "") !== (nextFeedback ?? "")) {
+      await createAuditLog(
+        {
+          actorId: user.id,
+          actorRole: user.role as UserRole,
+          entityType: "deliverable_submission_slot",
+          entityId: slot.id,
+          action: "deliverable_review.feedback_saved",
+          fromState: slot.status,
+          toState: parsed.data.status,
+          metadata: {
+            classId: parsed.data.classId,
+            enrollmentId: slot.enrollmentId,
+            deliverableId: slot.deliverableId,
+            deliverableTitle: slot.deliverable.title,
+            linkedCriterionIds: slot.deliverable.criteria.map(
+              (link) => link.criterionId,
+            ),
+            deliverableSubmissionVersionId: slot.latestVersionId,
+            feedbackLength: trimmedFeedback.length,
+            feedbackSnapshotStatus: shouldSendFeedback ? "sent" : "draft",
+          },
+        },
+        tx,
+      );
+    }
+  });
+
+  revalidatePath(`/teacher/classes/${parsed.data.classId}`);
+  revalidatePath(`/teacher/classes/${parsed.data.classId}/students/${slot.enrollmentId}`);
+  revalidatePath(
+    `/teacher/classes/${parsed.data.classId}/students/${slot.enrollmentId}/deliverables/${slot.deliverableId}`,
+  );
+  revalidatePath(`/student/classes/${parsed.data.classId}`);
+  revalidatePath(
+    `/student/classes/${parsed.data.classId}/deliverables/${slot.deliverableId}`,
+  );
   revalidatePath("/student/dashboard");
 
   return {

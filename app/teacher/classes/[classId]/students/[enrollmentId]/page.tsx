@@ -274,6 +274,13 @@ export default async function TeacherStudentPage({
                         {artifactUrl}
                       </a>
                     ) : null}
+                    <Button asChild size="sm" className="mt-3">
+                      <Link
+                        href={`/teacher/classes/${enrollment.class.id}/students/${enrollment.id}/deliverables/${slot.deliverable.id}`}
+                      >
+                        Open review
+                      </Link>
+                    </Button>
                   </div>
                 );
               })}
