@@ -71,6 +71,11 @@ function getBreadcrumbs(pathname: string, teacherClasses: TeacherClassOption[]) 
       return crumbs;
     }
 
+    if (segments[1] === "system") {
+      crumbs.push({ label: "System" });
+      return crumbs;
+    }
+
     if (segments[1] === "subjects") {
       crumbs.push({ label: "Subjects" });
       return crumbs;

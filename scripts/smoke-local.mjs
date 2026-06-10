@@ -27,6 +27,12 @@ async function main() {
     path: "/admin/assessment",
     expectedText: "Assessment reference",
   });
+  await verifyAuthenticatedPage({
+    label: "Admin system",
+    path: "/admin/system",
+    expectedText: "System status",
+    jar: currentJar,
+  });
 
   await verifyLogin({
     label: "Teacher",
@@ -136,6 +142,28 @@ async function verifyLogin({ label, email, password, role, path, expectedText })
   const session = await sessionResponse.json();
   if (session.user?.role !== role) {
     throw new Error(`${label}: expected role ${role}, received ${session.user?.role ?? "none"}.`);
+  }
+
+  const pageResponse = await request(path, { jar });
+  const html = await pageResponse.text();
+
+  if (!pageResponse.ok) {
+    throw new Error(`${label}: ${path} returned HTTP ${pageResponse.status}.`);
+  }
+
+  if (!html.includes(expectedText)) {
+    throw new Error(`${label}: ${path} did not include expected text: ${expectedText}.`);
+  }
+
+  console.log(`${label}: ${path} OK`);
+  currentJar = jar;
+}
+
+let currentJar = null;
+
+async function verifyAuthenticatedPage({ label, path, expectedText, jar }) {
+  if (!jar) {
+    throw new Error(`${label}: no authenticated session is available.`);
   }
 
   const pageResponse = await request(path, { jar });

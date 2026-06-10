@@ -102,6 +102,7 @@ AI review is advisory only. Teacher judgement remains final.
    - Teacher dashboard: [http://localhost:3000/teacher/dashboard](http://localhost:3000/teacher/dashboard)
    - Student dashboard: [http://localhost:3000/student/dashboard](http://localhost:3000/student/dashboard)
    - Admin assessment reference: [http://localhost:3000/admin/assessment](http://localhost:3000/admin/assessment)
+   - Admin system status: [http://localhost:3000/admin/system](http://localhost:3000/admin/system)
 
 ## Demo Accounts
 
@@ -215,6 +216,8 @@ Teacher review pages also include collapsed advanced tools:
 ## Admin Workflow
 
 Admins can open `/admin/assessment` to edit active assessment reference files for the AI review system.
+Admins can open `/admin/system` to check seed data, assessment reference readiness, masked AI provider configuration,
+official example fixture status, AI review run counts, and feedback snapshot counts.
 
 The active reference is currently:
 
@@ -323,6 +326,7 @@ app/
   student/classes/[classId]/criteria/[criterionId]/
   student/classes/[classId]/criteria/[criterionId]/feedback/
   admin/assessment/
+  admin/system/
 components/
 lib/
 prisma/

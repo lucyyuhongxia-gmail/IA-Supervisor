@@ -6,7 +6,7 @@ This manual describes the current MVP workflow for teachers, students, and admin
 
 - `teacher`: creates classes, reviews submissions, runs AI review, sends feedback, and tracks progress.
 - `student`: joins classes, submits IA files or evidence links, reads feedback, and submits revisions.
-- `admin`: manages assessment references and subject templates.
+- `admin`: manages assessment references, subject templates, and local system readiness.
 
 ## 2. Teacher Workflow
 
@@ -242,6 +242,21 @@ Subject templates define:
 - Milestone templates.
 
 Teachers create classes from published subject templates. Teachers can adjust class-level deadlines, while the subject-level assessment structure stays controlled by admin.
+
+### 4.3 System Status
+
+Admins can open `/admin/system` for a read-only operational overview.
+
+The page shows:
+
+- seed user readiness.
+- active assessment reference readiness.
+- masked AI provider configuration.
+- official IA example fixture readiness.
+- AI review run counts.
+- feedback snapshot counts.
+
+The page does not run network provider checks. Use `npm run ai-review:check-provider` for live DeepSeek preflight.
 
 ## 5. Local Operations And AI Quality Checks
 

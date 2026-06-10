@@ -99,6 +99,7 @@ function getNavItems(role: string) {
       return [
         { label: "Subjects", href: "/admin/subjects" },
         { label: "Assessment", href: "/admin/assessment" },
+        { label: "System", href: "/admin/system" },
       ];
     default:
       return [];

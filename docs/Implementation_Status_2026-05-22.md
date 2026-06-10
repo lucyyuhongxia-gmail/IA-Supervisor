@@ -1,6 +1,6 @@
 # IA Supervisor Implementation Status
 
-Last updated: 2026-06-10
+Last updated: 2026-06-11
 
 This document compares the current application implementation with the original v1 design documents in `docs/`.
 The original `.docx` files should be treated as architecture references. This file is the current implementation
@@ -51,6 +51,9 @@ and backlog supplement.
   - Criterion D: 12
   - Criterion E: 4
 - Admins can edit active assessment reference files from `/admin/assessment`.
+- Admins can view read-only system readiness from `/admin/system`, including seed user readiness, assessment reference
+  readiness, masked AI provider configuration, official example fixture status, AI review run counts, and feedback
+  snapshot counts.
 - AI review resolves the active assessment reference for the subject.
 
 ### Milestones
