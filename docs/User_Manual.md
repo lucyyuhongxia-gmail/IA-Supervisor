@@ -121,6 +121,43 @@ Class pages show:
 
 Open a student to see the student's full submission map.
 
+### 2.7 Advanced Teacher Review Tools
+
+Criterion review pages include several teacher-facing tools. These tools are advisory and do not send anything to the
+student unless the teacher explicitly saves feedback as `Revision Needed` or `Passed`.
+
+Available tools include:
+
+- AI review history, including extraction diagnostics, rubric alignment, and evidence snippets.
+- Semantic extraction, showing criterion-specific extracted sections and source snippets.
+- Cross-version delta review, comparing a newer submission against previous feedback.
+- Marking assistant, storing teacher-facing suggested mark ranges and optional teacher final marks.
+- Feedback history, showing sent and superseded feedback snapshots.
+- Audit history, showing important workflow events for the submission.
+
+The AI review copy buttons insert draft text into the teacher feedback field. The teacher should edit the text before
+sending it.
+
+### 2.8 Final Reports And Export
+
+Teacher student pages link to a teacher-only final report.
+
+The report shows:
+
+- Student, class, subject, and exam session details.
+- Criterion status for A-E.
+- Deliverable readiness.
+- Latest submitted files.
+- Sent teacher feedback.
+- Teacher-saved final marks when available.
+- Cross-criterion consistency signals.
+- Recent audit history.
+
+When readiness checks pass, the teacher can download a ZIP export package. The package contains the latest files,
+HTML/JSON reports, manifest checksums, audit summary, feedback summary, marks summary, and consistency summary.
+
+The current export is an HTML/ZIP moderation package. A formal rendered PDF package is not yet implemented.
+
 ## 3. Student Workflow
 
 ### 3.1 Join A Class
@@ -206,7 +243,112 @@ Subject templates define:
 
 Teachers create classes from published subject templates. Teachers can adjust class-level deadlines, while the subject-level assessment structure stays controlled by admin.
 
-## 5. Current Product Rules
+## 5. Local Operations And AI Quality Checks
+
+This section is for developers or school admins running the local MVP.
+
+### 5.1 Provider Preflight
+
+Before running real AI review, check the configured provider:
+
+```bash
+npm run ai-review:check-provider
+```
+
+For local mock mode:
+
+```bash
+AI_REVIEW_PROVIDER=mock npm run ai-review:check-provider
+```
+
+The command loads `.env`, masks the API key, and performs a minimal chat-completions request when using DeepSeek.
+
+If DeepSeek returns authentication or model errors, fix:
+
+- `DEEPSEEK_API_KEY`
+- `DEEPSEEK_MODEL`
+- `DEEPSEEK_BASE_URL`
+- account/model permissions
+
+### 5.2 Official IA Example Test Data
+
+If the official IB CS IA 2027 example files are available locally under:
+
+```text
+docs/test/IA-example for 2027/
+```
+
+load them into the local database:
+
+```bash
+npm run demo:official-examples
+```
+
+This creates:
+
+- class: `IB CS IA 2027 Official Examples`
+- students: `official-example-1@student.test` through `official-example-8@student.test`
+- password: `password123`
+- submitted versions for Criteria A-E
+- deliverable evidence for criterion documents, video evidence, and final package
+
+The command is idempotent and does not clear unrelated classes. It does not commit or copy the official PDF/MP4 files
+into Git.
+
+### 5.3 Batch AI Review For Official Examples
+
+Preview what would run:
+
+```bash
+npm run ai-review:run-official -- --dry-run
+```
+
+Run a small batch:
+
+```bash
+npm run ai-review:run-official -- --limit 5
+```
+
+Run one student and criterion:
+
+```bash
+npm run ai-review:run-official -- --student official-example-1@student.test --criterion A
+```
+
+In write mode, the runner checks the AI provider before creating any `AIReviewRun` records. If the API key, model, or
+endpoint is invalid, it stops before writing failed review rows.
+
+### 5.4 Official Example Benchmark
+
+After official-example reviews exist, run:
+
+```bash
+npm run ai-review:benchmark-official
+```
+
+During setup, when reviews are still missing, run:
+
+```bash
+npm run ai-review:benchmark-official -- --allow-missing
+```
+
+The benchmark compares stored AI review output with official examiner comments and writes reports under:
+
+```text
+tmp/ai-review-benchmark/
+```
+
+It checks:
+
+- 40 expected reviews: 8 examples x 5 criteria.
+- official examiner comment extraction.
+- criterion-specific focus-term overlap.
+- evidence-grounded feedback structure.
+- `studentFeedbackDraft` Markdown headings.
+- rubric alignment presence.
+- no mark, score, grade, or level prediction.
+
+## 6. Current Product Rules
 
 - PDF document submissions only.
 - Video deliverables use evidence links.
@@ -219,7 +361,7 @@ Teachers create classes from published subject templates. Teachers can adjust cl
 - Final package deliverables are for final archiving and do not change criterion status.
 - Final submission requires both passed criteria and passed deliverables.
 
-## 6. Common Problems
+## 7. Common Problems
 
 ### PDF Text Cannot Be Extracted
 
@@ -236,5 +378,11 @@ Check:
 - `DEEPSEEK_API_KEY`
 - `DEEPSEEK_MODEL`
 - Account permissions for the selected model
+
+Run:
+
+```bash
+npm run ai-review:check-provider
+```
 
 Restart the development server after changing `.env`.

@@ -10,6 +10,8 @@ For the current implementation and the gap between the v1 design and the app tha
 ## Current Living References
 
 - `Implementation_Status_2026-05-22.md` tracks implemented features, designed-but-unbuilt features, and recommended next sprints.
+- `User_Manual.md` is the current role-based user and local-operations manual.
+- `AI_Review_Official_Example_Benchmark.md` documents official-example AI review seeding, batch review, and benchmark workflows.
 - `assessment/ib-cs-ia-2027/criteria.md` stores the current IB CS IA 2027 criterion reference.
 - `assessment/ib-cs-ia-2027/rubric.md` stores rubric guidance used by AI review.
 - `assessment/ib-cs-ia-2027/prompt-guidance.md` stores prompt guidance for AI review.

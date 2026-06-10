@@ -1,6 +1,6 @@
 # IA Supervisor Implementation Status
 
-Last updated: 2026-06-04
+Last updated: 2026-06-10
 
 This document compares the current application implementation with the original v1 design documents in `docs/`.
 The original `.docx` files should be treated as architecture references. This file is the current implementation
@@ -176,6 +176,15 @@ and backlog supplement.
   2027 syllabus alignment, forbidden extraction contradictions, grade/mark predictions, and generic feedback.
 - The harness also checks whether `studentFeedbackDraft` uses the expected Markdown headings and includes evidence,
   why-it-matters, and action signals.
+- AI provider preflight is available through `npm run ai-review:check-provider`. It loads `.env`, masks secrets, and
+  verifies mock or DeepSeek/OpenAI-compatible chat completions configuration before real review batches run.
+- Official IB CS IA 2027 example test data can be loaded through `npm run demo:official-examples` when the official
+  files are present under `docs/test/IA-example for 2027/`.
+- Official example batch AI review runner is available through `npm run ai-review:run-official`. It can dry-run, limit,
+  filter by student or criterion, skip current reviews, and fail fast on provider errors before creating review rows.
+- Official example benchmark is available through `npm run ai-review:benchmark-official`. It compares stored AI review
+  output against official examiner comments and reports missing reviews, focus-term overlap, evidence grounding,
+  Markdown feedback structure, rubric alignment, and prohibited mark/grade predictions.
 - Teacher can copy AI summary, concerns, suggestions, or full draft into teacher feedback.
 - AI review does not change submission status, assign final marks, or send feedback automatically.
 - Current/stale AI review state is shown to help teachers know whether the latest version has been reviewed.
@@ -289,16 +298,18 @@ and backlog supplement.
 - PDF files can be previewed inline from teacher criterion review pages through the same authenticated file route.
 - Students can access their own files.
 - Teachers can access files for classes they own.
+- Deliverable file assets are served through the same authenticated route and are accessible to the owning student,
+  class teacher, or admin.
 
 ## Designed But Not Yet Implemented
 
-### Student Semantic Extraction Confirmation
+### Teacher-Only Semantic Extraction Confirmation
 
-The v1 design includes a student-facing confirmation workflow where students confirm or edit extracted IA elements
-before submission.
+The v1 design included possible student-facing confirmation where students confirm or edit extracted IA elements.
+Current product direction keeps AI data quality verification teacher-owned rather than student-owned.
 
 Current implementation has the `SemanticExtraction` table, automatic generation, teacher confirmation, and teacher
-review UI. It does not yet include student-facing extraction editing/confirmation or a teacher metadata editor.
+review UI. It does not include student-facing extraction editing/confirmation by design.
 
 ### LLM Delta Review Upgrade
 
@@ -322,20 +333,21 @@ The v1 design separates draft, approved, sent, and superseded feedback states.
 Current implementation has `FeedbackSnapshot` records and supports draft, sent, and superseded behavior. It does not
 yet have a separate approve step, correction notes, or exported feedback artifacts.
 
-### Feedback Templates And Exports
+### Feedback Templates And Formal PDF Exports
 
 The v1 design includes reusable feedback templates plus Markdown/PDF feedback export.
 
-Current implementation has built-in code-defined comment templates grouped by criterion. It does not yet have a
-database-backed `FeedbackTemplate` model, teacher-customizable templates, or Markdown/PDF feedback export.
+Current implementation has built-in code-defined comment templates grouped by criterion and student printable feedback
+pages that can be saved as PDF through the browser. It does not yet have a database-backed `FeedbackTemplate` model,
+teacher-customizable templates, or server-rendered formal feedback PDF artifacts.
 
-### Lock/Reopen/Withdraw Workflow
+### Lock/Withdraw Workflow
 
 The state machine includes `locked`, `withdrawn`, and reopen flows with audit reasons.
 
-Current implementation has the `locked` enum value and final submission locking behavior from the student side, but no
-teacher/admin reopen, teacher lock, or withdraw UI. Audit logging is available for the transitions currently
-implemented.
+Current implementation has the `locked` enum value, final submission locking behavior from the student side, and an
+explicit teacher reopen flow for final-submitted criterion slots with audit reason capture. It does not yet include
+teacher lock, admin lock, or withdraw UI.
 
 ### REST API Route Parity
 
@@ -411,8 +423,9 @@ small, so broader search/filter work has been intentionally deprioritized.
 4. **Formal Feedback Approval Step**
    Add an explicit approve action before sent feedback if the workflow needs stricter review control.
 
-5. **Student Semantic Extraction Confirmation**
-   Add student-facing extraction confirmation/editing before submission if this becomes important for data quality.
+5. **Teacher Semantic Extraction Editor**
+   Add a teacher-facing semantic extraction editor if the current confirm/regenerate flow proves too coarse. Student
+   confirmation is intentionally not planned for the current simple-teacher-tool direction.
 
 6. **Formal PDF Package Export**
    Add a rendered PDF report and optional persistent `FinalPackage` model after ZIP export is stable.
