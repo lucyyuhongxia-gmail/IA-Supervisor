@@ -25,6 +25,26 @@ This creates:
 
 ## Run
 
+Preview which official reviews would run:
+
+```bash
+npm run ai-review:run-official -- --dry-run
+```
+
+Run a small batch first:
+
+```bash
+npm run ai-review:run-official -- --limit 5
+```
+
+Run all missing or stale official-example AI reviews:
+
+```bash
+npm run ai-review:run-official
+```
+
+The runner reuses the production AI review service and writes normal `AIReviewRun` rows. It skips completed reviews that already cover the latest submitted version unless `--force` is used.
+
 After AI reviews have been run for the official examples:
 
 ```bash
@@ -58,6 +78,26 @@ The report checks:
 - `studentFeedbackDraft` Markdown headings
 - rubric alignment presence
 - no mark, score, grade, or level prediction
+
+## Useful Commands
+
+Run one criterion for one student:
+
+```bash
+npm run ai-review:run-official -- --student official-example-1@student.test --criterion A
+```
+
+Rerun one review even if it is already current:
+
+```bash
+npm run ai-review:run-official -- --student official-example-1@student.test --criterion A --force
+```
+
+Run all Criterion A reviews:
+
+```bash
+npm run ai-review:run-official -- --criterion A
+```
 
 ## Interpretation
 

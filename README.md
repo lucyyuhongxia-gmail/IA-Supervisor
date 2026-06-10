@@ -250,6 +250,7 @@ Run the official-example benchmark after loading the local official IA examples:
 
 ```bash
 npm run demo:official-examples
+npm run ai-review:run-official -- --dry-run
 npm run ai-review:benchmark-official -- --allow-missing
 ```
 
@@ -268,6 +269,7 @@ npm run dev
 npm run build
 npm run lint
 npm run ai-review:evaluate -- --slot-id <submissionSlotId>
+npm run ai-review:run-official -- --dry-run
 npm run ai-review:benchmark-official -- --allow-missing
 npm run demo:reset
 npm run demo:official-examples
