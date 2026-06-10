@@ -86,35 +86,37 @@ export async function getTeacherReviewQueue(teacherId: string) {
   return classes
     .flatMap((classRecord) =>
       classRecord.enrollments.flatMap((enrollment) => {
-        const criterionItems = enrollment.submissionSlots.map((slot) => {
-          const latestAIReviewRun = slot.aiReviewRuns[0];
-          const reviewTitle = `Criterion ${slot.criterion.code}: ${slot.criterion.title}`;
+        const criterionItems = enrollment.submissionSlots
+          .filter((slot) => Boolean(slot.latestVersionId))
+          .map((slot) => {
+            const latestAIReviewRun = slot.aiReviewRuns[0];
+            const reviewTitle = `Criterion ${slot.criterion.code}: ${slot.criterion.title}`;
 
-          return {
-            id: slot.id,
-            itemType: "criterion" as const,
-            classId: classRecord.id,
-            className: classRecord.name,
-            examSession: classRecord.examSession,
-            enrollmentId: enrollment.id,
-            studentName: enrollment.student.name,
-            studentEmail: enrollment.student.email,
-            reviewTitle,
-            reviewContext: "Criterion document",
-            reviewDetail: reviewTitle,
-            criterionId: slot.criterion.id,
-            criterionCode: slot.criterion.code,
-            criterionTitle: slot.criterion.title,
-            status: slot.status,
-            versionNumber: slot.latestVersion?.versionNumber,
-            submittedAt: slot.latestVersion?.submittedAt ?? slot.submittedAt,
-            aiReviewState: getAIReviewQueueState(
-              slot.latestVersionId,
-              latestAIReviewRun,
-            ),
-            href: `/teacher/classes/${classRecord.id}/students/${enrollment.id}/criteria/${slot.criterion.id}`,
-          };
-        });
+            return {
+              id: slot.id,
+              itemType: "criterion" as const,
+              classId: classRecord.id,
+              className: classRecord.name,
+              examSession: classRecord.examSession,
+              enrollmentId: enrollment.id,
+              studentName: enrollment.student.name,
+              studentEmail: enrollment.student.email,
+              reviewTitle,
+              reviewContext: "Criterion document",
+              reviewDetail: reviewTitle,
+              criterionId: slot.criterion.id,
+              criterionCode: slot.criterion.code,
+              criterionTitle: slot.criterion.title,
+              status: slot.status,
+              versionNumber: slot.latestVersion?.versionNumber,
+              submittedAt: slot.latestVersion?.submittedAt ?? slot.submittedAt,
+              aiReviewState: getAIReviewQueueState(
+                slot.latestVersionId,
+                latestAIReviewRun,
+              ),
+              href: `/teacher/classes/${classRecord.id}/students/${enrollment.id}/criteria/${slot.criterion.id}`,
+            };
+          });
 
         const deliverableItems = enrollment.deliverableSlots.map((slot) => {
           const linkedCriteria = slot.deliverable.criteria

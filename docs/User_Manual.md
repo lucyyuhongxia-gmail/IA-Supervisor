@@ -90,7 +90,26 @@ Examples:
 
 Students see deliverable feedback on the corresponding deliverable page.
 
-### 2.5 Class Pages
+### 2.5 Deliverable And Criterion Status
+
+Deliverables can be linked to one or more criteria.
+
+The system keeps criterion progress aligned with linked deliverables when the student has not submitted a separate criterion document version.
+
+The aggregation rule is:
+
+- If any linked deliverable needs revision, the criterion shows `Revision Needed`.
+- If any linked deliverable is under review, the criterion shows `Under Review`.
+- If any linked deliverable is submitted, the criterion shows `Submitted`.
+- If some linked deliverables are passed but others are not complete yet, the criterion shows `Submitted`.
+- If every linked non-final-package deliverable is passed, the criterion shows `Passed`.
+- Final package deliverables do not change criterion status.
+
+For IB Computer Science IA 2027, Criterion D is linked to both the development document and the 5-minute video evidence. Criterion D is only treated as passed after both linked deliverables are passed.
+
+Derived criterion statuses do not create separate teacher queue items. Teachers review the actual deliverable item from the queue.
+
+### 2.6 Class Pages
 
 Class pages show:
 
@@ -180,6 +199,8 @@ Teachers create classes from published subject templates. Teachers can adjust cl
 - Teacher feedback is attached to the reviewed version.
 - AI review must follow the active assessment reference.
 - AI review is not visible to students until the teacher sends edited feedback.
+- Criterion progress is synchronized from linked deliverables unless the student has submitted a separate criterion version.
+- Final package deliverables are for final archiving and do not change criterion status.
 
 ## 6. Common Problems
 

@@ -191,6 +191,8 @@ IB Computer Science IA 2027
 - File upload limit is 25 MB.
 - Every student submit creates an immutable `SubmissionVersion`.
 - Deliverable submissions also create immutable version history and can be reviewed from the teacher queue.
+- Linked deliverables synchronize criterion progress when the student has not submitted a separate criterion version.
+- Final package deliverables do not change criterion status.
 - Student notes are saved with the submitted version and cleared after submission.
 - Sent teacher feedback is stored as a `FeedbackSnapshot`.
 - New sent feedback supersedes older sent feedback for the same submission version.

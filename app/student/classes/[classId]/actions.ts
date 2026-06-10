@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { createAuditLog } from "@/lib/audit-log";
 import { getCurrentUser } from "@/lib/current-user";
+import { syncLinkedCriterionStatusesFromDeliverables } from "@/lib/deliverable-criteria-sync";
 import { extractFileText } from "@/lib/file-extraction";
 import { deleteStoredFile, saveUploadedFile } from "@/lib/files";
 import { prisma } from "@/lib/prisma";
@@ -261,6 +262,7 @@ export async function updateDeliverableSubmissionSlotAction(
     },
     select: {
       id: true,
+      enrollmentId: true,
       deliverableId: true,
       status: true,
       deliverable: {
@@ -342,6 +344,9 @@ export async function updateDeliverableSubmissionSlotAction(
   });
   const nextVersionNumber = (latestVersion?.versionNumber ?? 0) + 1;
   const submittedAt = new Date();
+  const linkedCriterionIds = slot.deliverable.criteria.map(
+    (link) => link.criterionId,
+  );
 
   await prisma.$transaction(async (tx) => {
     const version = await tx.deliverableSubmissionVersion.create({
@@ -390,9 +395,7 @@ export async function updateDeliverableSubmissionSlotAction(
           classId: parsed.data.classId,
           deliverableId: slot.deliverableId,
           deliverableTitle: slot.deliverable.title,
-          linkedCriterionIds: slot.deliverable.criteria.map(
-            (link) => link.criterionId,
-          ),
+          linkedCriterionIds,
           deliverableSubmissionVersionId: version.id,
           versionNumber: nextVersionNumber,
           fileName: hasUploadedFile ? uploadedFile.name : null,
@@ -402,12 +405,24 @@ export async function updateDeliverableSubmissionSlotAction(
       },
       tx,
     );
+
+    await syncLinkedCriterionStatusesFromDeliverables({
+      tx,
+      classId: parsed.data.classId,
+      enrollmentId: slot.enrollmentId,
+      criterionIds: linkedCriterionIds,
+      actorId: user.id,
+      actorRole: user.role as UserRole,
+    });
   });
 
   revalidatePath(`/student/classes/${parsed.data.classId}`);
   revalidatePath(
     `/student/classes/${parsed.data.classId}/deliverables/${slot.deliverableId}`,
   );
+  for (const criterionId of linkedCriterionIds) {
+    revalidatePath(`/student/classes/${parsed.data.classId}/criteria/${criterionId}`);
+  }
   revalidatePath(`/teacher/classes/${parsed.data.classId}`);
   revalidatePath("/student/dashboard");
 

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { createAuditLog } from "@/lib/audit-log";
 import { runConsistencyReviewForEnrollment } from "@/lib/consistency-review";
 import { getCurrentUser } from "@/lib/current-user";
+import { syncLinkedCriterionStatusesFromDeliverables } from "@/lib/deliverable-criteria-sync";
 import { runDeltaReviewForSlot } from "@/lib/delta-review";
 import { extractFileText } from "@/lib/file-extraction";
 import { runMarkingAssistantForSlot } from "@/lib/marking-assistant";
@@ -470,6 +471,9 @@ export async function updateDeliverableTeacherFeedbackAction(
   const studentVisibleFeedback = shouldSendFeedback
     ? trimmedFeedback
     : slot.teacherFeedback;
+  const linkedCriterionIds = slot.deliverable.criteria.map(
+    (link) => link.criterionId,
+  );
 
   await prisma.$transaction(async (tx) => {
     await tx.deliverableSubmissionSlot.update({
@@ -506,9 +510,7 @@ export async function updateDeliverableTeacherFeedbackAction(
             enrollmentId: slot.enrollmentId,
             deliverableId: slot.deliverableId,
             deliverableTitle: slot.deliverable.title,
-            linkedCriterionIds: slot.deliverable.criteria.map(
-              (link) => link.criterionId,
-            ),
+            linkedCriterionIds,
             deliverableSubmissionVersionId: slot.latestVersionId,
           },
         },
@@ -531,9 +533,7 @@ export async function updateDeliverableTeacherFeedbackAction(
             enrollmentId: slot.enrollmentId,
             deliverableId: slot.deliverableId,
             deliverableTitle: slot.deliverable.title,
-            linkedCriterionIds: slot.deliverable.criteria.map(
-              (link) => link.criterionId,
-            ),
+            linkedCriterionIds,
             deliverableSubmissionVersionId: slot.latestVersionId,
             feedbackLength: trimmedFeedback.length,
             feedbackSnapshotStatus: shouldSendFeedback ? "sent" : "draft",
@@ -542,6 +542,15 @@ export async function updateDeliverableTeacherFeedbackAction(
         tx,
       );
     }
+
+    await syncLinkedCriterionStatusesFromDeliverables({
+      tx,
+      classId: parsed.data.classId,
+      enrollmentId: slot.enrollmentId,
+      criterionIds: linkedCriterionIds,
+      actorId: user.id,
+      actorRole: user.role as UserRole,
+    });
   });
 
   revalidatePath(`/teacher/classes/${parsed.data.classId}`);
@@ -549,6 +558,12 @@ export async function updateDeliverableTeacherFeedbackAction(
   revalidatePath(
     `/teacher/classes/${parsed.data.classId}/students/${slot.enrollmentId}/deliverables/${slot.deliverableId}`,
   );
+  for (const criterionId of linkedCriterionIds) {
+    revalidatePath(
+      `/teacher/classes/${parsed.data.classId}/students/${slot.enrollmentId}/criteria/${criterionId}`,
+    );
+    revalidatePath(`/student/classes/${parsed.data.classId}/criteria/${criterionId}`);
+  }
   revalidatePath(`/student/classes/${parsed.data.classId}`);
   revalidatePath(
     `/student/classes/${parsed.data.classId}/deliverables/${slot.deliverableId}`,
