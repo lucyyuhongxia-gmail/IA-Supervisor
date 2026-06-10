@@ -51,6 +51,8 @@ npm run ai-review:run-official
 
 The runner reuses the production AI review service and writes normal `AIReviewRun` rows. It skips completed reviews that already cover the latest submitted version unless `--force` is used.
 
+In write mode, the runner automatically performs the same provider preflight as `npm run ai-review:check-provider` before creating any review rows. If the API key, model, or endpoint is invalid, the batch stops before writing failed AI review records. Use `--skip-provider-check` only for deliberate local testing.
+
 After AI reviews have been run for the official examples:
 
 ```bash

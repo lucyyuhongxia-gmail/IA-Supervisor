@@ -8,6 +8,11 @@ import { runAIReviewForSlot } from "@/lib/ai-review";
 import { extractFileText } from "@/lib/file-extraction";
 import { prisma } from "@/lib/prisma";
 import { generateSemanticExtractionForSlot } from "@/lib/semantic-extraction";
+import {
+  checkAIReviewProvider,
+  formatProviderCheckResult,
+  getAIReviewProviderCheckConfig,
+} from "./lib/ai-provider-check";
 
 const defaultClassName = "IB CS IA 2027 Official Examples";
 const officialStudentEmailPattern = /^official-example-(\d+)@student\.test$/;
@@ -26,6 +31,8 @@ type Args = {
   force: boolean;
   help: boolean;
   limit: number | null;
+  providerCheckTimeoutMs: number;
+  skipProviderCheck: boolean;
   studentEmails: Set<string> | null;
 };
 
@@ -56,6 +63,24 @@ async function main() {
   }
 
   assertLocalDatabase();
+
+  if (!args.dryRun && !args.skipProviderCheck) {
+    console.log("Checking AI review provider before batch run...");
+
+    const providerCheck = await checkAIReviewProvider({
+      config: getAIReviewProviderCheckConfig(),
+      timeoutMs: args.providerCheckTimeoutMs,
+    });
+    const providerCheckOutput = formatProviderCheckResult(providerCheck);
+
+    if (!providerCheck.ok) {
+      throw new Error(
+        `${providerCheckOutput}\nProvider preflight failed. Fix .env or rerun with --skip-provider-check only for deliberate local testing.`,
+      );
+    }
+
+    console.log(providerCheckOutput);
+  }
 
   const classRecord = await prisma.class.findFirst({
     where: { name: args.className },
@@ -196,6 +221,8 @@ function parseArgs(argv: string[]): Args {
     force: false,
     help: false,
     limit: null,
+    providerCheckTimeoutMs: 15000,
+    skipProviderCheck: false,
     studentEmails: null,
   };
 
@@ -240,6 +267,20 @@ function parseArgs(argv: string[]): Args {
         index += 1;
         break;
       }
+      case "--provider-check-timeout-ms": {
+        const value = Number(requireValue(argv, index, arg));
+
+        if (!Number.isInteger(value) || value < 1000) {
+          throw new Error("--provider-check-timeout-ms must be an integer >= 1000.");
+        }
+
+        args.providerCheckTimeoutMs = value;
+        index += 1;
+        break;
+      }
+      case "--skip-provider-check":
+        args.skipProviderCheck = true;
+        break;
       case "--student":
         args.studentEmails = new Set(
           requireValue(argv, index, arg)
@@ -283,11 +324,15 @@ Options:
   --force         Rerun even when a completed AI review already covers the latest version.
   --criterion     Comma-separated criterion codes, for example A,B,D.
   --student       Comma-separated official student emails.
+  --skip-provider-check
+                  Skip the real-provider preflight in write mode.
   --allow-fail    Print blocked/failed rows but exit with code 0.
 
 The command reuses the production AI review service and writes normal AI review
 runs to the database. It defaults to the configured provider:
-AI_REVIEW_PROVIDER=deepseek when DEEPSEEK_API_KEY is present, otherwise mock.`);
+AI_REVIEW_PROVIDER=deepseek when DEEPSEEK_API_KEY is present, otherwise mock.
+In write mode, the command checks the configured provider before creating any
+AIReviewRun records unless --skip-provider-check is provided.`);
 }
 
 function assertLocalDatabase() {
@@ -480,7 +525,7 @@ function printSummary({
 
 main()
   .catch((error: unknown) => {
-    console.error(error);
+    console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;
   })
   .finally(async () => {

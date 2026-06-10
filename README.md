@@ -145,6 +145,8 @@ npm run ai-review:check-provider
 
 This command loads `.env`, masks the API key in output, and performs one minimal chat-completions request. Use it before batch-running official example reviews.
 
+The official-example batch runner also performs this provider check automatically in write mode, before creating any `AIReviewRun` records.
+
 AI review uses the local assessment reference files in:
 
 ```text

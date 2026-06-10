@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "ai-review:check-provider": "node scripts/check-ai-review-provider.mjs",
+    "ai-review:check-provider": "tsx scripts/check-ai-review-provider.ts",
     "ai-review:evaluate": "node scripts/evaluate-ai-review.mjs",
     "ai-review:benchmark-official": "node scripts/benchmark-official-ai-reviews.mjs",
     "ai-review:run-official": "tsx scripts/run-official-ai-reviews.ts",
