@@ -246,6 +246,21 @@ The evaluator checks:
 - Markdown-ready student feedback draft headings
 - evidence / why-it-matters / action signals in student-facing feedback
 
+Run the official-example benchmark after loading the local official IA examples:
+
+```bash
+npm run demo:official-examples
+npm run ai-review:benchmark-official -- --allow-missing
+```
+
+After AI reviews have been generated for all 8 official examples, run without `--allow-missing`:
+
+```bash
+npm run ai-review:benchmark-official
+```
+
+The benchmark compares stored AI review output with the official examiner comments and writes reports under `tmp/ai-review-benchmark/`.
+
 ## Common Commands
 
 ```bash
@@ -253,6 +268,7 @@ npm run dev
 npm run build
 npm run lint
 npm run ai-review:evaluate -- --slot-id <submissionSlotId>
+npm run ai-review:benchmark-official -- --allow-missing
 npm run demo:reset
 npm run demo:official-examples
 npx prisma migrate dev
@@ -304,4 +320,5 @@ uploads/
 - Current implementation and backlog: `docs/Implementation_Status_2026-05-22.md`
 - MVP1.0 release notes: `docs/releases/MVP1.0.md`
 - Security checklist: `docs/Security_Checklist.md`
+- Official example AI review benchmark: `docs/AI_Review_Official_Example_Benchmark.md`
 - Assessment reference: `docs/assessment/ib-cs-ia-2027/`

@@ -5,6 +5,7 @@ node_modules
 .DS_Store
 dist
 coverage
+tmp
 *.log
 uploads/*
 !uploads/.gitkeep

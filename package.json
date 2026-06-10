@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "ai-review:evaluate": "node scripts/evaluate-ai-review.mjs",
+    "ai-review:benchmark-official": "node scripts/benchmark-official-ai-reviews.mjs",
     "demo:reset": "node scripts/demo-reset.mjs",
     "demo:official-examples": "node scripts/seed-official-ia-examples.mjs",
     "prisma:generate": "prisma generate",
