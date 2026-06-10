@@ -259,10 +259,12 @@ This command checks the deterministic local path:
 
 - lint and production build.
 - mock AI provider preflight.
+- base reference/user seed.
 - official IA example fixture reseed.
 - fixture shape verification.
 - one-item official AI review dry-run.
 - official benchmark smoke test with missing real AI reviews allowed.
+- authenticated admin, teacher, and student page smoke test.
 
 It does not call DeepSeek. It does reseed the `IB CS IA 2027 Official Examples` class and clears AI review artifacts for
 that fixture, but it does not clear unrelated teacher/student classes.

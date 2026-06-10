@@ -19,6 +19,7 @@ async function main() {
     AI_REVIEW_PROVIDER: "mock",
     DEEPSEEK_API_KEY: "",
   });
+  await run("Seed base reference data", "npx", ["prisma", "db", "seed"]);
   await run("Seed official IA examples", "npm", ["run", "demo:official-examples"]);
   await verifyOfficialFixture();
   await run("Official AI review dry-run smoke test", "npm", [
@@ -39,6 +40,7 @@ async function main() {
     "--",
     "--allow-missing",
   ]);
+  await run("Authenticated app smoke test", "npm", ["run", "smoke:local"]);
 
   console.log("\nLocal QA passed.");
 }

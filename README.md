@@ -155,9 +155,10 @@ Run the deterministic local QA gate before committing workflow changes:
 npm run qa:local
 ```
 
-This runs lint, build, a mock AI provider preflight, reseeds the official IA example fixture, verifies the fixture shape,
-runs a one-item official review dry-run, and runs the official benchmark in setup mode. It does not call DeepSeek. It does
-reset AI review artifacts for the `IB CS IA 2027 Official Examples` class, but it does not clear unrelated classes.
+This runs lint, build, a mock AI provider preflight, base seed, official IA example fixture seed, fixture verification, a
+one-item official review dry-run, the official benchmark in setup mode, and an authenticated admin/teacher/student app
+smoke test. It does not call DeepSeek. It does reset AI review artifacts for the `IB CS IA 2027 Official Examples` class,
+but it does not clear unrelated classes.
 
 AI review uses the local assessment reference files in:
 
@@ -297,6 +298,7 @@ npm run ai-review:benchmark-official -- --allow-missing
 npm run demo:reset
 npm run demo:official-examples
 npm run qa:local
+npm run smoke:local
 npx prisma migrate dev
 npx prisma db seed
 npx prisma studio
