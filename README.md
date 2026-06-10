@@ -147,6 +147,18 @@ This command loads `.env`, masks the API key in output, and performs one minimal
 
 The official-example batch runner also performs this provider check automatically in write mode, before creating any `AIReviewRun` records.
 
+## Local QA Gate
+
+Run the deterministic local QA gate before committing workflow changes:
+
+```bash
+npm run qa:local
+```
+
+This runs lint, build, a mock AI provider preflight, reseeds the official IA example fixture, verifies the fixture shape,
+runs a one-item official review dry-run, and runs the official benchmark in setup mode. It does not call DeepSeek. It does
+reset AI review artifacts for the `IB CS IA 2027 Official Examples` class, but it does not clear unrelated classes.
+
 AI review uses the local assessment reference files in:
 
 ```text
@@ -284,6 +296,7 @@ npm run ai-review:run-official -- --dry-run
 npm run ai-review:benchmark-official -- --allow-missing
 npm run demo:reset
 npm run demo:official-examples
+npm run qa:local
 npx prisma migrate dev
 npx prisma db seed
 npx prisma studio

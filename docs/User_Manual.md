@@ -247,7 +247,27 @@ Teachers create classes from published subject templates. Teachers can adjust cl
 
 This section is for developers or school admins running the local MVP.
 
-### 5.1 Provider Preflight
+### 5.1 Local QA Gate
+
+Before committing workflow changes, run:
+
+```bash
+npm run qa:local
+```
+
+This command checks the deterministic local path:
+
+- lint and production build.
+- mock AI provider preflight.
+- official IA example fixture reseed.
+- fixture shape verification.
+- one-item official AI review dry-run.
+- official benchmark smoke test with missing real AI reviews allowed.
+
+It does not call DeepSeek. It does reseed the `IB CS IA 2027 Official Examples` class and clears AI review artifacts for
+that fixture, but it does not clear unrelated teacher/student classes.
+
+### 5.2 Provider Preflight
 
 Before running real AI review, check the configured provider:
 
@@ -270,7 +290,7 @@ If DeepSeek returns authentication or model errors, fix:
 - `DEEPSEEK_BASE_URL`
 - account/model permissions
 
-### 5.2 Official IA Example Test Data
+### 5.3 Official IA Example Test Data
 
 If the official IB CS IA 2027 example files are available locally under:
 
@@ -295,7 +315,7 @@ This creates:
 The command is idempotent and does not clear unrelated classes. It does not commit or copy the official PDF/MP4 files
 into Git.
 
-### 5.3 Batch AI Review For Official Examples
+### 5.4 Batch AI Review For Official Examples
 
 Preview what would run:
 
@@ -318,7 +338,7 @@ npm run ai-review:run-official -- --student official-example-1@student.test --cr
 In write mode, the runner checks the AI provider before creating any `AIReviewRun` records. If the API key, model, or
 endpoint is invalid, it stops before writing failed review rows.
 
-### 5.4 Official Example Benchmark
+### 5.5 Official Example Benchmark
 
 After official-example reviews exist, run:
 

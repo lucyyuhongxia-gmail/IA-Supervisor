@@ -13,6 +13,7 @@
     "ai-review:run-official": "tsx scripts/run-official-ai-reviews.ts",
     "demo:reset": "node scripts/demo-reset.mjs",
     "demo:official-examples": "node scripts/seed-official-ia-examples.mjs",
+    "qa:local": "node scripts/qa-local.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"
