@@ -321,8 +321,9 @@ export default async function StudentDashboardPage() {
                       <p className="mb-2 text-sm font-medium">Submission plan</p>
                       <div className="grid gap-2 sm:grid-cols-2">
                         {sortedDeliverableSlots.map((slot) => (
-                          <div
+                          <Link
                             key={slot.id}
+                            href={`/student/classes/${enrollment.class.id}/deliverables/${slot.deliverable.id}`}
                             className="rounded-md border px-3 py-2 text-sm"
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -346,7 +347,7 @@ export default async function StudentDashboardPage() {
                                 {slot.latestVersion.submittedAt.toLocaleDateString()}
                               </p>
                             ) : null}
-                          </div>
+                          </Link>
                         ))}
                       </div>
                     </div>

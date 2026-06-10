@@ -226,6 +226,7 @@ export default async function TeacherStudentPage({
                   latestVersion?.fileAssets.length
                     ? latestVersion.fileAssets
                     : slot.fileAssets;
+                const artifactUrl = latestVersion?.artifactUrl ?? slot.artifactUrl;
 
                 return (
                   <div key={slot.id} className="rounded-md border p-3 text-sm">
@@ -262,6 +263,16 @@ export default async function TeacherStudentPage({
                           </a>
                         ))}
                       </div>
+                    ) : null}
+                    {artifactUrl ? (
+                      <a
+                        href={artifactUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 block break-all text-primary underline-offset-4 hover:underline"
+                      >
+                        {artifactUrl}
+                      </a>
                     ) : null}
                   </div>
                 );

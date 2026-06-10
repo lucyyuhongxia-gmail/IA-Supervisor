@@ -278,6 +278,7 @@ model DeliverableSubmissionSlot {
   deliverableId   String           @map("deliverable_id")
   latestVersionId String?          @unique @map("latest_version_id")
   status          SubmissionStatus @default(not_started)
+  artifactUrl     String?          @map("artifact_url")
   notes           String?
   teacherFeedback String?          @map("teacher_feedback")
   reviewedAt      DateTime?        @map("reviewed_at")
@@ -300,6 +301,7 @@ model DeliverableSubmissionVersion {
   id                          String    @id @default(cuid())
   deliverableSubmissionSlotId String    @map("deliverable_submission_slot_id")
   versionNumber               Int       @map("version_number")
+  artifactUrl                 String?   @map("artifact_url")
   notes                       String?
   teacherFeedback             String?   @map("teacher_feedback")
   reviewedAt                  DateTime? @map("reviewed_at")

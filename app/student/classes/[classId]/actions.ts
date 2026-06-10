@@ -18,6 +18,18 @@ const updateSubmissionSchema = z.object({
   notes: z.string().trim().max(1200).optional(),
 });
 
+const updateDeliverableSubmissionSchema = z.object({
+  classId: z.string().min(1),
+  deliverableSlotId: z.string().min(1),
+  artifactUrl: z
+    .string()
+    .trim()
+    .url("Enter a valid video or evidence link.")
+    .max(500)
+    .optional(),
+  notes: z.string().trim().max(1200).optional(),
+});
+
 const finalizeClassSchema = z.object({
   classId: z.string().min(1),
 });
@@ -216,6 +228,192 @@ export async function updateSubmissionSlotAction(
   };
 }
 
+export async function updateDeliverableSubmissionSlotAction(
+  _state: StudentSubmissionState,
+  formData: FormData,
+): Promise<StudentSubmissionState> {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== "student") {
+    return { error: "Only student accounts can update submissions." };
+  }
+
+  const parsed = updateDeliverableSubmissionSchema.safeParse({
+    classId: formData.get("classId"),
+    deliverableSlotId: formData.get("deliverableSlotId"),
+    artifactUrl: formData.get("artifactUrl") || undefined,
+    notes: formData.get("notes") || undefined,
+  });
+
+  if (!parsed.success) {
+    return {
+      error: parsed.error.errors[0]?.message ?? "Check the submission form.",
+    };
+  }
+
+  const slot = await prisma.deliverableSubmissionSlot.findFirst({
+    where: {
+      id: parsed.data.deliverableSlotId,
+      enrollment: {
+        studentId: user.id,
+        classId: parsed.data.classId,
+      },
+    },
+    select: {
+      id: true,
+      deliverableId: true,
+      status: true,
+      deliverable: {
+        select: {
+          id: true,
+          title: true,
+          fileRequirement: true,
+          criteria: {
+            select: {
+              criterionId: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!slot) {
+    return { error: "Deliverable submission slot not found." };
+  }
+
+  if (
+    !(studentWritableSourceStatuses as readonly SubmissionStatus[]).includes(
+      slot.status,
+    )
+  ) {
+    return { error: "This submission is currently locked for student edits." };
+  }
+
+  const uploadedFile = formData.get("artifactFile");
+  const hasUploadedFile = uploadedFile instanceof File && uploadedFile.size > 0;
+  const artifactUrl = parsed.data.artifactUrl?.trim() || null;
+  const allowsLink = isLinkDeliverable(slot.deliverable.fileRequirement);
+
+  if (!hasUploadedFile && !artifactUrl) {
+    return allowsLink
+      ? { error: "Upload a PDF or provide a video/evidence link." }
+      : { error: "Upload a PDF file before submitting this deliverable." };
+  }
+
+  if (artifactUrl && !allowsLink) {
+    return { error: "This deliverable requires a PDF upload, not a link." };
+  }
+
+  let fileAsset:
+    | Awaited<ReturnType<typeof saveUploadedFile>>
+    | null = null;
+
+  if (hasUploadedFile) {
+    try {
+      fileAsset = await saveUploadedFile(uploadedFile);
+      const validation = await validateReadablePdfUpload(fileAsset);
+
+      if (!validation.valid) {
+        await deleteStoredFile(fileAsset.storagePath);
+
+        return {
+          error: validation.message,
+        };
+      }
+    } catch (error) {
+      if (fileAsset) {
+        await deleteStoredFile(fileAsset.storagePath).catch(() => null);
+      }
+
+      return {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Could not save the uploaded file.",
+      };
+    }
+  }
+
+  const latestVersion = await prisma.deliverableSubmissionVersion.findFirst({
+    where: { deliverableSubmissionSlotId: slot.id },
+    orderBy: { versionNumber: "desc" },
+    select: { versionNumber: true },
+  });
+  const nextVersionNumber = (latestVersion?.versionNumber ?? 0) + 1;
+  const submittedAt = new Date();
+
+  await prisma.$transaction(async (tx) => {
+    const version = await tx.deliverableSubmissionVersion.create({
+      data: {
+        deliverableSubmissionSlotId: slot.id,
+        versionNumber: nextVersionNumber,
+        artifactUrl,
+        notes: parsed.data.notes ?? null,
+        submittedAt,
+        fileAssets: fileAsset
+          ? {
+              create: {
+                ...fileAsset,
+                deliverableSubmissionSlotId: slot.id,
+                ownerId: user.id,
+              },
+            }
+          : undefined,
+      },
+      select: { id: true },
+    });
+
+    await tx.deliverableSubmissionSlot.update({
+      where: { id: slot.id },
+      data: {
+        latestVersionId: version.id,
+        artifactUrl,
+        notes: null,
+        status: "submitted",
+        submittedAt,
+        teacherFeedback: null,
+        reviewedAt: null,
+      },
+    });
+
+    await createAuditLog(
+      {
+        actorId: user.id,
+        actorRole: user.role as UserRole,
+        entityType: "deliverable_submission_slot",
+        entityId: slot.id,
+        action: "deliverable_submission.version_submitted",
+        fromState: slot.status,
+        toState: "submitted",
+        metadata: {
+          classId: parsed.data.classId,
+          deliverableId: slot.deliverableId,
+          deliverableTitle: slot.deliverable.title,
+          linkedCriterionIds: slot.deliverable.criteria.map(
+            (link) => link.criterionId,
+          ),
+          deliverableSubmissionVersionId: version.id,
+          versionNumber: nextVersionNumber,
+          fileName: hasUploadedFile ? uploadedFile.name : null,
+          fileSizeBytes: hasUploadedFile ? uploadedFile.size : null,
+          artifactUrl,
+        },
+      },
+      tx,
+    );
+  });
+
+  revalidatePath(`/student/classes/${parsed.data.classId}`);
+  revalidatePath(
+    `/student/classes/${parsed.data.classId}/deliverables/${slot.deliverableId}`,
+  );
+  revalidatePath(`/teacher/classes/${parsed.data.classId}`);
+  revalidatePath("/student/dashboard");
+
+  return { success: "Deliverable submitted." };
+}
+
 async function validateReadablePdfUpload(
   fileAsset: Awaited<ReturnType<typeof saveUploadedFile>>,
 ) {
@@ -233,6 +431,12 @@ async function validateReadablePdfUpload(
   }
 
   return { valid: true };
+}
+
+function isLinkDeliverable(fileRequirement: string | null) {
+  const normalized = fileRequirement?.toLowerCase() ?? "";
+
+  return normalized.includes("link") || normalized.includes("video");
 }
 
 export async function finalizeClassSubmissionAction(

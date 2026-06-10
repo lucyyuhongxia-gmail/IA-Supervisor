@@ -316,6 +316,8 @@ export default async function StudentClassPage({
                   latestVersion?.fileAssets.length
                     ? latestVersion.fileAssets
                     : deliverableSlot?.fileAssets ?? [];
+                const latestArtifactUrl =
+                  latestVersion?.artifactUrl ?? deliverableSlot?.artifactUrl;
 
                 return (
                   <div key={deliverable.id} className="rounded-md border p-3 text-sm">
@@ -354,6 +356,16 @@ export default async function StudentClassPage({
                         {latestFiles[0] ? formatFileSize(latestFiles[0].sizeBytes) : ""}
                       </p>
                     ) : null}
+                    {latestArtifactUrl ? (
+                      <a
+                        href={latestArtifactUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 block break-all text-xs text-primary underline-offset-4 hover:underline"
+                      >
+                        {latestArtifactUrl}
+                      </a>
+                    ) : null}
                     {deliverable.criteria.length > 0 ? (
                       <div className="mt-2 flex flex-wrap gap-1">
                         {deliverable.criteria.map((link) => (
@@ -370,6 +382,18 @@ export default async function StudentClassPage({
                       <p className="mt-2 text-xs text-muted-foreground">
                         {deliverable.description}
                       </p>
+                    ) : null}
+                    {deliverableSlot ? (
+                      <Button asChild size="sm" className="mt-3">
+                        <Link
+                          href={`/student/classes/${classRecord.id}/deliverables/${deliverable.id}`}
+                        >
+                          {getDeliverableActionLabel(
+                            deliverableSlot.status,
+                            deliverable.title,
+                          )}
+                        </Link>
+                      </Button>
                     ) : null}
                   </div>
                 );
@@ -574,6 +598,21 @@ function getCriterionActionLabel(status: string, criterionCode: string) {
       return `Check Criterion ${criterionCode}`;
     default:
       return `Open Criterion ${criterionCode}`;
+  }
+}
+
+function getDeliverableActionLabel(status: string, title: string) {
+  switch (status) {
+    case "revision_needed":
+      return `Revise ${title}`;
+    case "passed":
+    case "final_submitted":
+      return `View ${title}`;
+    case "submitted":
+    case "under_review":
+      return `Check ${title}`;
+    default:
+      return `Submit ${title}`;
   }
 }
 
