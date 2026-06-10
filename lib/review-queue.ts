@@ -13,21 +13,33 @@ export const reviewQueueFilters = [
 
 export type ReviewQueueFilter = (typeof reviewQueueFilters)[number]["value"];
 
+export type ReviewQueueItemType = "criterion" | "deliverable";
+
 export type ReviewQueueItem = {
   id: string;
+  itemType: ReviewQueueItemType;
   classId: string;
   className: string;
   examSession: string;
   enrollmentId: string;
   studentName: string;
   studentEmail: string;
-  criterionId: string;
-  criterionCode: string;
-  criterionTitle: string;
+  reviewTitle: string;
+  reviewContext: string;
+  reviewDetail: string;
+  criterionId?: string;
+  criterionCode?: string;
+  criterionTitle?: string;
   status: SubmissionStatus;
   versionNumber?: number;
   submittedAt: Date | null;
-  aiReviewState: "missing" | "current" | "stale" | "failed" | "pending";
+  aiReviewState:
+    | "missing"
+    | "current"
+    | "stale"
+    | "failed"
+    | "pending"
+    | "not_applicable";
   href: string;
 };
 
@@ -53,6 +65,19 @@ export async function getTeacherReviewQueue(teacherId: string) {
               },
             },
           },
+          deliverableSlots: {
+            include: {
+              latestVersion: true,
+              deliverable: {
+                include: {
+                  criteria: {
+                    include: { criterion: true },
+                    orderBy: { criterion: { sortOrder: "asc" } },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -60,18 +85,23 @@ export async function getTeacherReviewQueue(teacherId: string) {
 
   return classes
     .flatMap((classRecord) =>
-      classRecord.enrollments.flatMap((enrollment) =>
-        enrollment.submissionSlots.map((slot) => {
+      classRecord.enrollments.flatMap((enrollment) => {
+        const criterionItems = enrollment.submissionSlots.map((slot) => {
           const latestAIReviewRun = slot.aiReviewRuns[0];
+          const reviewTitle = `Criterion ${slot.criterion.code}: ${slot.criterion.title}`;
 
           return {
             id: slot.id,
+            itemType: "criterion" as const,
             classId: classRecord.id,
             className: classRecord.name,
             examSession: classRecord.examSession,
             enrollmentId: enrollment.id,
             studentName: enrollment.student.name,
             studentEmail: enrollment.student.email,
+            reviewTitle,
+            reviewContext: "Criterion document",
+            reviewDetail: reviewTitle,
             criterionId: slot.criterion.id,
             criterionCode: slot.criterion.code,
             criterionTitle: slot.criterion.title,
@@ -84,8 +114,35 @@ export async function getTeacherReviewQueue(teacherId: string) {
             ),
             href: `/teacher/classes/${classRecord.id}/students/${enrollment.id}/criteria/${slot.criterion.id}`,
           };
-        }),
-      ),
+        });
+
+        const deliverableItems = enrollment.deliverableSlots.map((slot) => {
+          const linkedCriteria = slot.deliverable.criteria
+            .map((link) => `Criterion ${link.criterion.code}`)
+            .join(", ");
+
+          return {
+            id: slot.id,
+            itemType: "deliverable" as const,
+            classId: classRecord.id,
+            className: classRecord.name,
+            examSession: classRecord.examSession,
+            enrollmentId: enrollment.id,
+            studentName: enrollment.student.name,
+            studentEmail: enrollment.student.email,
+            reviewTitle: slot.deliverable.title,
+            reviewContext: "Deliverable",
+            reviewDetail: linkedCriteria || "General deliverable",
+            status: slot.status,
+            versionNumber: slot.latestVersion?.versionNumber,
+            submittedAt: slot.latestVersion?.submittedAt ?? slot.submittedAt,
+            aiReviewState: "not_applicable" as const,
+            href: `/teacher/classes/${classRecord.id}/students/${enrollment.id}/deliverables/${slot.deliverable.id}`,
+          };
+        });
+
+        return [...criterionItems, ...deliverableItems];
+      }),
     )
     .filter((item) =>
       [

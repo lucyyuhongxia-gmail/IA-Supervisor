@@ -138,8 +138,8 @@ The AI review prompt is locked to the IB Computer Science IA 2027 assessment ref
 2. Create or select a class from `/teacher/dashboard`.
 3. Share the class invite code with students.
 4. Open a class to view enrolled students and criterion status.
-5. Open a student, then open a criterion review page.
-6. Check the uploaded PDF and extracted text status.
+5. Use the dashboard review queue to open criterion submissions or deliverable submissions that need attention.
+6. For criterion review, check the uploaded PDF and extracted text status.
 7. Run AI review if the latest submitted PDF has readable text.
 8. Review AI summary, concerns, suggestions, rubric alignment, and evidence snippets.
 9. Use `Copy full draft`, `Copy concerns`, or `Copy suggestions` to move AI notes into the editable feedback box.
@@ -148,7 +148,8 @@ The AI review prompt is locked to the IB Computer Science IA 2027 assessment ref
     - `Submitted` or `Under Review` saves a teacher-only draft.
     - `Revision Needed` sends feedback to the student.
     - `Passed` sends feedback and marks the criterion passed.
-12. Continue through the review queue or return to the dashboard.
+12. For deliverable review, open the deliverable item, inspect the submitted PDF or evidence link, then set `Under Review`, `Revision Needed`, or `Passed`.
+13. Continue through the review queue or return to the dashboard.
 
 Teacher review pages also include collapsed advanced tools:
 
@@ -164,11 +165,11 @@ Teacher review pages also include collapsed advanced tools:
 1. Register or sign in as a student.
 2. Join a class using the invite code from the teacher.
 3. Open the class from `/student/dashboard`.
-4. Open one criterion at a time.
-5. Upload a readable PDF for that criterion.
-6. Submit the criterion.
+4. Open one deliverable or criterion at a time.
+5. Upload a readable PDF for document deliverables. For video deliverables, provide the required evidence link.
+6. Submit the deliverable or criterion.
 7. Wait for teacher review.
-8. If revision is needed, read teacher feedback, revise the PDF, and submit a new version.
+8. If revision is needed, read teacher feedback, revise the file or evidence, and submit a new version.
 9. Use `Print feedback` to print or save teacher feedback as PDF.
 10. Final-submit the IA only after all criteria are passed.
 
@@ -185,9 +186,11 @@ IB Computer Science IA 2027
 ## Important Product Rules
 
 - Students can submit PDF files only.
+- Video/evidence deliverables use a link field instead of a file upload.
 - Uploaded PDFs must contain readable text. Scanned or image-only PDFs are rejected.
 - File upload limit is 25 MB.
 - Every student submit creates an immutable `SubmissionVersion`.
+- Deliverable submissions also create immutable version history and can be reviewed from the teacher queue.
 - Student notes are saved with the submitted version and cleared after submission.
 - Sent teacher feedback is stored as a `FeedbackSnapshot`.
 - New sent feedback supersedes older sent feedback for the same submission version.

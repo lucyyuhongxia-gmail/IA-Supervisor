@@ -74,17 +74,14 @@ export default async function TeacherDashboardPage({
   const filteredReviewQueueItems = reviewQueueItems.filter((item) =>
     matchesReviewQueueFilter(item.status, activeQueueFilter),
   );
-  const allSlots = classes.flatMap((classRecord) =>
-    classRecord.enrollments.flatMap((enrollment) => enrollment.submissionSlots),
-  );
-  const awaitingReviewCount = allSlots.filter(
-    (slot) => slot.status === "submitted" || slot.status === "under_review",
+  const awaitingReviewCount = reviewQueueItems.filter(
+    (item) => item.status === "submitted" || item.status === "under_review",
   ).length;
-  const revisionNeededCount = allSlots.filter(
-    (slot) => slot.status === "revision_needed",
+  const revisionNeededCount = reviewQueueItems.filter(
+    (item) => item.status === "revision_needed",
   ).length;
-  const passedCount = allSlots.filter(
-    (slot) => slot.status === "passed" || slot.status === "final_submitted",
+  const passedCount = reviewQueueItems.filter(
+    (item) => item.status === "passed" || item.status === "final_submitted",
   ).length;
   const needsAIReviewCount = reviewQueueItems.filter((item) =>
     ["missing", "stale", "failed"].includes(item.aiReviewState),
@@ -141,12 +138,15 @@ export default async function TeacherDashboardPage({
             <div className="grid gap-3">
               {filteredReviewQueueItems.map((item) => (
                 <div
-                  key={item.id}
+                  key={`${item.itemType}-${item.id}`}
                   className="grid gap-3 rounded-md border p-4 md:grid-cols-[1fr_auto]"
                 >
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-medium">{item.studentName}</p>
+                      <p className="inline-flex rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700">
+                        {item.itemType === "criterion" ? "Criterion" : "Deliverable"}
+                      </p>
                       <p
                         className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(item.status)}`}
                       >
@@ -159,11 +159,10 @@ export default async function TeacherDashboardPage({
                       </p>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {item.className} · {item.examSession} · Criterion {item.criterionCode}:{" "}
-                      {item.criterionTitle}
+                      {item.className} · {item.examSession} · {item.reviewTitle}
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {item.studentEmail} ·{" "}
+                      {item.studentEmail} · {item.reviewContext} · {item.reviewDetail} ·{" "}
                       {item.versionNumber ? `v${item.versionNumber} · ` : ""}
                       {item.submittedAt
                         ? item.submittedAt.toLocaleString()
@@ -397,6 +396,8 @@ function getAIReviewStateTone(state: string) {
     case "stale":
     case "failed":
       return "border-amber-200 bg-amber-50 text-amber-800";
+    case "not_applicable":
+      return "border-stone-200 bg-stone-50 text-stone-700";
     case "missing":
     default:
       return "border-slate-200 bg-slate-50 text-slate-600";
@@ -413,6 +414,8 @@ function formatAIReviewState(state: string) {
       return "AI failed";
     case "pending":
       return "AI pending";
+    case "not_applicable":
+      return "Manual review";
     case "missing":
     default:
       return "No AI review";

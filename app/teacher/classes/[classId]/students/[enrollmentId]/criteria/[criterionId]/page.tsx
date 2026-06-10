@@ -140,9 +140,13 @@ export default async function TeacherCriterionReviewPage({
   const feedback = feedbackDraft?.content ?? "";
   const reviewedAt = latestVersion?.reviewedAt ?? slot.reviewedAt;
   const reviewQueue = await getTeacherReviewQueue(user.id);
-  const currentQueueIndex = reviewQueue.findIndex((item) => item.id === slot.id);
+  const currentQueueIndex = reviewQueue.findIndex(
+    (item) => item.itemType === "criterion" && item.id === slot.id,
+  );
   const nextReviewItem =
-    currentQueueIndex >= 0 ? reviewQueue[currentQueueIndex + 1] : reviewQueue[0];
+    currentQueueIndex >= 0
+      ? reviewQueue[currentQueueIndex + 1]
+      : reviewQueue.find((item) => item.id !== slot.id);
   const latestAIReviewRun = slot.aiReviewRuns[0];
   const latestDeltaReview = slot.deltaReviews[0] ?? null;
   const aiReviewState = getAIReviewWorkflowState(
@@ -247,8 +251,8 @@ export default async function TeacherCriterionReviewPage({
           </div>
           {nextReviewItem ? (
             <p className="max-w-xl text-sm text-muted-foreground lg:text-right">
-              Next: {nextReviewItem.studentName} · {nextReviewItem.className} · Criterion{" "}
-              {nextReviewItem.criterionCode}
+              Next: {nextReviewItem.studentName} · {nextReviewItem.className} ·{" "}
+              {nextReviewItem.reviewTitle}
             </p>
           ) : (
             <p className="text-sm text-muted-foreground">No next active item.</p>
