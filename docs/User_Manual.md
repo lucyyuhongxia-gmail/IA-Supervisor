@@ -152,6 +152,22 @@ When a teacher returns work:
 
 Students can print or save feedback as PDF from the feedback page.
 
+### 3.4 Final Submission
+
+Final submission becomes available only when:
+
+- Every criterion is `Passed`.
+- Every class deliverable is `Passed`.
+- Every deliverable has a submitted PDF file or evidence link.
+
+When the student final-submits:
+
+- Passed criteria become `Final Submitted`.
+- Passed deliverables become `Final Submitted`.
+- Student editing is locked for the final-submitted items.
+
+The final package deliverable does not change criterion progress, but it is still required before final submission when it exists in the class submission plan.
+
 ## 4. Admin Workflow
 
 ### 4.1 Assessment References
@@ -201,6 +217,7 @@ Teachers create classes from published subject templates. Teachers can adjust cl
 - AI review is not visible to students until the teacher sends edited feedback.
 - Criterion progress is synchronized from linked deliverables unless the student has submitted a separate criterion version.
 - Final package deliverables are for final archiving and do not change criterion status.
+- Final submission requires both passed criteria and passed deliverables.
 
 ## 6. Common Problems
 

@@ -8,6 +8,7 @@ import { createAuditLog } from "@/lib/audit-log";
 import { getCurrentUser } from "@/lib/current-user";
 import { syncLinkedCriterionStatusesFromDeliverables } from "@/lib/deliverable-criteria-sync";
 import { extractFileText } from "@/lib/file-extraction";
+import { buildFinalReadiness, getDeliverableEvidenceState } from "@/lib/final-readiness";
 import { deleteStoredFile, saveUploadedFile } from "@/lib/files";
 import { prisma } from "@/lib/prisma";
 import { generateSemanticExtractionForSlot } from "@/lib/semantic-extraction";
@@ -492,6 +493,30 @@ export async function finalizeClassSubmissionAction(
           criteria: { select: { id: true, code: true } },
         },
       },
+      deliverables: {
+        where: { isArchived: false },
+        select: {
+          id: true,
+          title: true,
+          reviewMode: true,
+          submissionSlots: {
+            where: { enrollmentId: enrollment.id },
+            select: {
+              id: true,
+              status: true,
+              latestVersionId: true,
+              artifactUrl: true,
+              fileAssets: { select: { id: true } },
+              latestVersion: {
+                select: {
+                  artifactUrl: true,
+                  fileAssets: { select: { id: true } },
+                },
+              },
+            },
+          },
+        },
+      },
     },
   });
 
@@ -509,25 +534,48 @@ export async function finalizeClassSubmissionAction(
     },
   });
   const slotsByCriterionId = new Map(slots.map((slot) => [slot.criterionId, slot]));
-  const incompleteCriteria = classRecord.subject.criteria.filter((criterion) => {
-    const slot = slotsByCriterionId.get(criterion.id);
+  const deliverableSlots = classRecord.deliverables.flatMap((deliverable) =>
+    deliverable.submissionSlots.map((slot) => ({
+      ...slot,
+      deliverableId: deliverable.id,
+      title: deliverable.title,
+    })),
+  );
+  const finalReadiness = buildFinalReadiness({
+    criteria: classRecord.subject.criteria.map((criterion) => ({
+      id: criterion.id,
+      code: criterion.code,
+      status: slotsByCriterionId.get(criterion.id)?.status ?? "not_started",
+    })),
+    deliverables: classRecord.deliverables.map((deliverable) => {
+      const slot = deliverable.submissionSlots[0];
+      const evidence = getDeliverableEvidenceState({
+        latestVersion: slot?.latestVersion,
+        slot,
+      });
 
-    return (
-      !slot ||
-      !slot.latestVersionId ||
-      (slot.status !== "passed" && slot.status !== "final_submitted")
-    );
+      return {
+        id: deliverable.id,
+        title: deliverable.title,
+        reviewMode: deliverable.reviewMode,
+        status: slot?.status ?? "not_started",
+        hasEvidence: evidence.hasEvidence,
+      };
+    }),
   });
 
-  if (incompleteCriteria.length > 0) {
+  if (!finalReadiness.isReady) {
     return {
-      error: `Final submission requires all criteria to be passed. Missing: ${incompleteCriteria
-        .map((criterion) => criterion.code)
-        .join(", ")}.`,
+      error: `Final submission is not ready. ${finalReadiness.issues
+        .map((issue) => `${issue.label}: ${issue.detail}`)
+        .join(" ")}`,
     };
   }
 
   const passedSlots = slots.filter((slot) => slot.status === "passed");
+  const passedDeliverableSlots = deliverableSlots.filter(
+    (slot) => slot.status === "passed",
+  );
 
   await prisma.$transaction(async (tx) => {
     await tx.submissionSlot.updateMany({
@@ -541,27 +589,60 @@ export async function finalizeClassSubmissionAction(
     });
 
     await Promise.all(
-      passedSlots.map((slot) =>
-        createAuditLog(
-          {
-            actorId: user.id,
-            actorRole: user.role as UserRole,
-            entityType: "submission_slot",
-            entityId: slot.id,
-            action: "submission.final_submitted",
-            fromState: "passed",
-            toState: "final_submitted",
-            metadata: {
-              classId: parsed.data.classId,
-              enrollmentId: enrollment.id,
-              criterionId: slot.criterionId,
-              submissionVersionId: slot.latestVersionId,
+      [
+        ...passedSlots.map((slot) =>
+          createAuditLog(
+            {
+              actorId: user.id,
+              actorRole: user.role as UserRole,
+              entityType: "submission_slot",
+              entityId: slot.id,
+              action: "submission.final_submitted",
+              fromState: "passed",
+              toState: "final_submitted",
+              metadata: {
+                classId: parsed.data.classId,
+                enrollmentId: enrollment.id,
+                criterionId: slot.criterionId,
+                submissionVersionId: slot.latestVersionId,
+              },
             },
-          },
-          tx,
+            tx,
+          ),
         ),
-      ),
+        ...passedDeliverableSlots.map((slot) =>
+          createAuditLog(
+            {
+              actorId: user.id,
+              actorRole: user.role as UserRole,
+              entityType: "deliverable_submission_slot",
+              entityId: slot.id,
+              action: "deliverable_submission.final_submitted",
+              fromState: "passed",
+              toState: "final_submitted",
+              metadata: {
+                classId: parsed.data.classId,
+                enrollmentId: enrollment.id,
+                deliverableId: slot.deliverableId,
+                deliverableTitle: slot.title,
+                deliverableSubmissionVersionId: slot.latestVersionId,
+              },
+            },
+            tx,
+          ),
+        ),
+      ],
     );
+
+    await tx.deliverableSubmissionSlot.updateMany({
+      where: {
+        enrollmentId: enrollment.id,
+        status: "passed",
+      },
+      data: {
+        status: "final_submitted",
+      },
+    });
   });
 
   revalidatePath(`/student/classes/${parsed.data.classId}`);

@@ -5,6 +5,12 @@ import type { SubmissionStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/current-user";
+import {
+  buildFinalReadiness,
+  getDeliverableEvidenceState,
+  isFinalSubmitted as isFinalSubmittedStatus,
+  isPassedOrFinal,
+} from "@/lib/final-readiness";
 import { formatFileSize } from "@/lib/files";
 import { prisma } from "@/lib/prisma";
 import {
@@ -106,6 +112,36 @@ export default async function StudentClassPage({
     criterion,
     slot: criterion.submissionSlots[0],
   }));
+  const deliverablesWithSlots = classRecord.deliverables.map((deliverable) => {
+    const slot = deliverable.submissionSlots[0];
+    const latestVersion = slot?.latestVersion;
+    const evidence = getDeliverableEvidenceState({
+      latestVersion,
+      slot,
+    });
+
+    return {
+      deliverable,
+      slot,
+      status: slot?.status ?? "not_started",
+      evidence,
+    };
+  });
+  const finalReadiness = buildFinalReadiness({
+    criteria: criteriaWithSlots.map(({ criterion, slot }) => ({
+      id: criterion.id,
+      code: criterion.code,
+      title: criterion.title,
+      status: slot?.status ?? "not_started",
+    })),
+    deliverables: deliverablesWithSlots.map(({ deliverable, slot, evidence }) => ({
+      id: deliverable.id,
+      title: deliverable.title,
+      reviewMode: deliverable.reviewMode,
+      status: slot?.status ?? "not_started",
+      hasEvidence: evidence.hasEvidence,
+    })),
+  });
   const completionItems = criteriaWithSlots.map(({ criterion, slot }) => {
     const latestVersion = slot?.latestVersion;
     const latestFiles =
@@ -120,21 +156,18 @@ export default async function StudentClassPage({
       status,
       hasSubmittedVersion: Boolean(latestVersion),
       hasFile: latestFiles.length > 0,
-      isPassed: status === "passed" || status === "final_submitted",
-      isFinalSubmitted: status === "final_submitted",
+      isPassed: isPassedOrFinal(status),
+      isFinalSubmitted: isFinalSubmittedStatus(status),
       needsRevision: status === "revision_needed",
       isWaitingReview: status === "submitted" || status === "under_review",
       blockers: getStudentCompletionBlockers({
         criterionCode: criterion.code,
         status,
-        hasSubmittedVersion: Boolean(latestVersion),
-        hasFile: latestFiles.length > 0,
       }),
     };
   });
-  const passedOrFinalCount = criteriaWithSlots.filter(({ slot }) =>
-    slot?.status === "passed" || slot?.status === "final_submitted",
-  ).length;
+  const passedOrFinalCount = finalReadiness.criteriaPassedCount;
+  const deliverablesPassedCount = finalReadiness.deliverablesPassedCount;
   const submittedOrReviewCount = completionItems.filter(
     (item) => item.isWaitingReview,
   ).length;
@@ -143,15 +176,12 @@ export default async function StudentClassPage({
   ).length;
   const isFinalSubmitted =
     criteriaWithSlots.length > 0 &&
-    criteriaWithSlots.every(({ slot }) => slot?.status === "final_submitted");
-  const canFinalize =
-    criteriaWithSlots.length > 0 &&
-    criteriaWithSlots.every(
-      ({ slot }) =>
-        Boolean(slot?.latestVersionId) &&
-        (slot?.status === "passed" || slot?.status === "final_submitted"),
-    );
-  const finalSubmissionBlockers = completionItems.flatMap((item) => item.blockers);
+    criteriaWithSlots.every(({ slot }) => slot?.status === "final_submitted") &&
+    deliverablesWithSlots.every(({ slot }) => slot?.status === "final_submitted");
+  const canFinalize = finalReadiness.isReady && !isFinalSubmitted;
+  const finalSubmissionBlockers = finalReadiness.issues.map(
+    (issue) => `${issue.label}: ${issue.detail}`,
+  );
   const finalSubmittedAt = isFinalSubmitted
     ? completionItems
         .map((item) => item.slot?.updatedAt)
@@ -191,7 +221,7 @@ export default async function StudentClassPage({
             <div>
               <CardTitle className="text-lg">Completion status</CardTitle>
               <CardDescription>
-                Your final submission becomes available after every criterion is passed.
+                Final submission becomes available after every criterion and deliverable is passed.
               </CardDescription>
             </div>
             <p
@@ -215,7 +245,7 @@ export default async function StudentClassPage({
                   {isFinalSubmitted
                     ? "Your IA submission is final submitted and all criterion uploads are locked."
                     : canFinalize
-                      ? "All criteria are passed. Finalize only when you are ready to lock the full IA submission."
+                      ? "All criteria and deliverables are passed. Finalize only when you are ready to lock the full IA submission."
                       : "Resolve the items below before final submission is available."}
                 </p>
                 {finalSubmittedAt ? (
@@ -231,10 +261,14 @@ export default async function StudentClassPage({
               />
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-4">
+            <div className="grid gap-2 sm:grid-cols-5">
               <CompletionMetric
                 label="Passed"
                 value={`${passedOrFinalCount}/${completionItems.length}`}
+              />
+              <CompletionMetric
+                label="Deliverables"
+                value={`${deliverablesPassedCount}/${deliverablesWithSlots.length}`}
               />
               <CompletionMetric
                 label="Waiting review"
@@ -281,7 +315,7 @@ export default async function StudentClassPage({
                       />
                       <CompletionPill
                         label={item.hasFile ? "File uploaded" : "Missing file"}
-                        tone={item.hasFile ? "success" : "warning"}
+                        tone={item.hasFile ? "success" : "muted"}
                       />
                       <CompletionPill
                         label={item.isPassed ? "Passed" : "Not passed yet"}
@@ -540,23 +574,11 @@ function getCompletionPillClasses(tone: "success" | "info" | "warning" | "muted"
 function getStudentCompletionBlockers({
   criterionCode,
   status,
-  hasSubmittedVersion,
-  hasFile,
 }: {
   criterionCode: string;
   status: string;
-  hasSubmittedVersion: boolean;
-  hasFile: boolean;
 }) {
   const blockers: string[] = [];
-
-  if (!hasSubmittedVersion) {
-    blockers.push(`Criterion ${criterionCode}: submit a document.`);
-  }
-
-  if (!hasFile) {
-    blockers.push(`Criterion ${criterionCode}: upload a PDF file.`);
-  }
 
   if (status === "revision_needed") {
     blockers.push(`Criterion ${criterionCode}: revise and resubmit based on teacher feedback.`);

@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 
 import { createAuditLog } from "@/lib/audit-log";
 import { getCurrentUser } from "@/lib/current-user";
+import { getDeliverableEvidenceState } from "@/lib/final-readiness";
 import { formatFileSize, sanitizeFileName } from "@/lib/files";
 import { prisma } from "@/lib/prisma";
 import { createZip } from "@/lib/zip";
@@ -80,6 +81,17 @@ export async function GET(
           },
         },
       },
+      deliverableSlots: {
+        include: {
+          deliverable: true,
+          latestVersion: {
+            include: {
+              fileAssets: { orderBy: { createdAt: "desc" } },
+            },
+          },
+          fileAssets: { orderBy: { createdAt: "desc" } },
+        },
+      },
     },
   });
 
@@ -105,11 +117,39 @@ export async function GET(
       latestVersion,
       files,
       sentFeedback,
+      feedbackContent:
+        sentFeedback?.content ??
+        latestVersion?.teacherFeedback ??
+        slot?.teacherFeedback ??
+        "",
       finalMark,
     };
   });
+  const deliverableRows = enrollment.deliverableSlots
+    .filter((slot) => !slot.deliverable.isArchived)
+    .sort((a, b) => a.deliverable.sortOrder - b.deliverable.sortOrder)
+    .map((slot) => {
+      const latestVersion = slot.latestVersion ?? null;
+      const files =
+        latestVersion?.fileAssets.length
+          ? latestVersion.fileAssets
+          : slot.fileAssets;
+      const evidence = getDeliverableEvidenceState({
+        latestVersion,
+        slot,
+      });
 
-  const blockingIssues = getBlockingIssues(rows);
+      return {
+        deliverable: slot.deliverable,
+        slot,
+        latestVersion,
+        files,
+        artifactUrl: evidence.artifactUrl,
+        hasEvidence: evidence.hasEvidence,
+      };
+    });
+
+  const blockingIssues = getBlockingIssues(rows, deliverableRows);
 
   if (blockingIssues.length > 0) {
     return NextResponse.json(
@@ -139,21 +179,33 @@ export async function GET(
     : [];
 
   const fileEntries = await Promise.all(
-    rows.flatMap((row) =>
-      row.files.map(async (fileAsset, fileIndex) => {
+    [
+      ...rows.flatMap((row) =>
+        row.files.map((fileAsset, fileIndex) => ({
+          fileAsset,
+          fileIndex,
+          pathPrefix: `files/criteria/Criterion_${row.criterion.code}`,
+        })),
+      ),
+      ...deliverableRows.flatMap((row) =>
+        row.files.map((fileAsset, fileIndex) => ({
+          fileAsset,
+          fileIndex,
+          pathPrefix: `files/deliverables/${sanitizeFileName(row.deliverable.title)}`,
+        })),
+      ),
+    ].map(async ({ fileAsset, fileIndex, pathPrefix }) => {
         const data = await readFile(fileAsset.storagePath);
 
         return {
-          path: `files/Criterion_${row.criterion.code}/${fileIndex + 1}-${sanitizeFileName(fileAsset.originalName)}`,
+          path: `${pathPrefix}/${fileIndex + 1}-${sanitizeFileName(fileAsset.originalName)}`,
           data,
           modifiedAt: fileAsset.createdAt,
-          criterionCode: row.criterion.code,
           originalName: fileAsset.originalName,
           sizeBytes: data.length,
           sha256: hashBuffer(data),
         };
       }),
-    ),
   );
   const now = new Date();
   const exportBaseName = sanitizeFileName(
@@ -182,6 +234,7 @@ export async function GET(
   const report = buildReport({
     enrollment,
     rows,
+    deliverableRows,
     consistencyChecks,
     auditLogs,
     generatedAt: now,
@@ -279,9 +332,14 @@ function getBlockingIssues(
     criterion: { code: string };
     slot?: { status: string } | null;
     latestVersion?: unknown | null;
-    files: unknown[];
-    sentFeedback?: unknown | null;
+    sentFeedback?: { content: string } | null;
+    feedbackContent?: string;
     finalMark?: { teacherFinalMark: number | null } | null;
+  }>,
+  deliverableRows: Array<{
+    deliverable: { title: string };
+    slot: { status: string };
+    hasEvidence: boolean;
   }>,
 ) {
   const issues: string[] = [];
@@ -300,20 +358,28 @@ function getBlockingIssues(
       );
     }
 
-    if (!row.latestVersion) {
-      issues.push(`${label}: no submitted version.`);
+    if (!row.sentFeedback && !row.feedbackContent) {
+      issues.push(`${label}: no student-visible teacher feedback.`);
     }
 
-    if (row.files.length === 0) {
-      issues.push(`${label}: no latest file.`);
-    }
-
-    if (!row.sentFeedback) {
-      issues.push(`${label}: no sent teacher feedback.`);
-    }
-
-    if (row.finalMark?.teacherFinalMark === undefined || row.finalMark.teacherFinalMark === null) {
+    if (
+      row.latestVersion &&
+      (row.finalMark?.teacherFinalMark === undefined ||
+        row.finalMark.teacherFinalMark === null)
+    ) {
       issues.push(`${label}: no teacher final mark.`);
+    }
+  });
+
+  deliverableRows.forEach((row) => {
+    if (row.slot.status !== "final_submitted") {
+      issues.push(
+        `${row.deliverable.title}: status is ${formatStatus(row.slot.status)}, not Final Submitted.`,
+      );
+    }
+
+    if (!row.hasEvidence) {
+      issues.push(`${row.deliverable.title}: no submitted file or evidence link.`);
     }
   });
 
@@ -323,6 +389,7 @@ function getBlockingIssues(
 function buildReport({
   enrollment,
   rows,
+  deliverableRows,
   consistencyChecks,
   auditLogs,
   generatedAt,
@@ -361,6 +428,34 @@ function buildReport({
       teacherFinalComment: string | null;
       finalMarkedAt: Date | null;
     } | null;
+  }>;
+  deliverableRows: Array<{
+    deliverable: {
+      title: string;
+      reviewMode: string;
+      fileRequirement: string | null;
+    };
+    slot: {
+      status: string;
+      submittedAt: Date | null;
+      teacherFeedback: string | null;
+    };
+    latestVersion?: {
+      id: string;
+      versionNumber: number;
+      submittedAt: Date;
+      artifactUrl: string | null;
+      teacherFeedback: string | null;
+    } | null;
+    files: Array<{
+      id: string;
+      originalName: string;
+      mimeType: string;
+      sizeBytes: number;
+      createdAt: Date;
+    }>;
+    artifactUrl?: string | null;
+    hasEvidence: boolean;
   }>;
   consistencyChecks: Array<{
     checkType: string;
@@ -411,6 +506,32 @@ function buildReport({
     teacherFinalComment: row.finalMark?.teacherFinalComment ?? null,
     finalMarkedAt: row.finalMark?.finalMarkedAt?.toISOString() ?? null,
   }));
+  const deliverables = deliverableRows.map((row) => ({
+    title: row.deliverable.title,
+    reviewMode: row.deliverable.reviewMode,
+    fileRequirement: row.deliverable.fileRequirement,
+    status: row.slot.status,
+    latestVersion: row.latestVersion
+      ? {
+          id: row.latestVersion.id,
+          versionNumber: row.latestVersion.versionNumber,
+          submittedAt: row.latestVersion.submittedAt.toISOString(),
+          artifactUrl: row.latestVersion.artifactUrl,
+        }
+      : null,
+    artifactUrl: row.artifactUrl ?? null,
+    hasEvidence: row.hasEvidence,
+    files: row.files.map((fileAsset) => ({
+      id: fileAsset.id,
+      originalName: fileAsset.originalName,
+      mimeType: fileAsset.mimeType,
+      sizeBytes: fileAsset.sizeBytes,
+      sizeLabel: formatFileSize(fileAsset.sizeBytes),
+      createdAt: fileAsset.createdAt.toISOString(),
+    })),
+    teacherFeedback:
+      row.latestVersion?.teacherFeedback ?? row.slot.teacherFeedback ?? null,
+  }));
 
   return {
     generatedAt: generatedAt.toISOString(),
@@ -427,6 +548,7 @@ function buildReport({
       teacher: enrollment.class.teacher.name ?? enrollment.class.teacher.email,
     },
     criteria,
+    deliverables,
     marksSummary,
     totalMarks: {
       earned: marksSummary.reduce(
@@ -509,6 +631,31 @@ function buildReportHtml(report: ReturnType<typeof buildReport>) {
             <td>${escapeHtml(feedback?.content ?? "")}</td>
           </tr>`;
         })
+        .join("")}
+    </tbody>
+  </table>
+  <h2>Deliverables</h2>
+  <table>
+    <thead><tr><th>Deliverable</th><th>Status</th><th>Evidence</th><th>Feedback</th></tr></thead>
+    <tbody>
+      ${report.deliverables
+        .map(
+          (deliverable) => `<tr>
+            <td>${escapeHtml(deliverable.title)}<br /><span class="muted">${escapeHtml(deliverable.fileRequirement ?? "")}</span></td>
+            <td>${escapeHtml(formatStatus(deliverable.status))}</td>
+            <td>${[
+              ...deliverable.files.map((file) =>
+                `${escapeHtml(file.originalName)} (${escapeHtml(file.sizeLabel)})`,
+              ),
+              deliverable.artifactUrl
+                ? escapeHtml(deliverable.artifactUrl)
+                : "",
+            ]
+              .filter(Boolean)
+              .join("<br />")}</td>
+            <td>${escapeHtml(deliverable.teacherFeedback ?? "")}</td>
+          </tr>`,
+        )
         .join("")}
     </tbody>
   </table>

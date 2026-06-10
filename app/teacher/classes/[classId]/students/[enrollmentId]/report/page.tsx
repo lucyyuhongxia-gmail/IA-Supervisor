@@ -5,6 +5,7 @@ import type { ConsistencyCheckSeverity, ConsistencyCheckStatus, SubmissionStatus
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/current-user";
+import { getDeliverableEvidenceState } from "@/lib/final-readiness";
 import { formatFileSize } from "@/lib/files";
 import { prisma } from "@/lib/prisma";
 import { ensureClassSubmissionSlots, formatSubmissionStatus } from "@/lib/submissions";
@@ -88,6 +89,17 @@ export default async function TeacherStudentReportPage({
           },
         },
       },
+      deliverableSlots: {
+        include: {
+          deliverable: true,
+          latestVersion: {
+            include: {
+              fileAssets: { orderBy: { createdAt: "desc" } },
+            },
+          },
+          fileAssets: { orderBy: { createdAt: "desc" } },
+        },
+      },
     },
   });
 
@@ -123,6 +135,29 @@ export default async function TeacherStudentReportPage({
       finalMark,
     };
   });
+  const deliverableRows = enrollment.deliverableSlots
+    .filter((slot) => !slot.deliverable.isArchived)
+    .sort((a, b) => a.deliverable.sortOrder - b.deliverable.sortOrder)
+    .map((slot) => {
+      const latestVersion = slot.latestVersion ?? null;
+      const files =
+        latestVersion?.fileAssets.length
+          ? latestVersion.fileAssets
+          : slot.fileAssets;
+      const evidence = getDeliverableEvidenceState({
+        latestVersion,
+        slot,
+      });
+
+      return {
+        deliverable: slot.deliverable,
+        slot,
+        latestVersion,
+        files,
+        artifactUrl: evidence.artifactUrl,
+        hasEvidence: evidence.hasEvidence,
+      };
+    });
 
   const maxTotalMarks = sortedCriteria.reduce(
     (total, criterion) => total + criterion.maxMarks,
@@ -134,6 +169,9 @@ export default async function TeacherStudentReportPage({
   );
   const missingMarks = rows.filter((row) => row.finalMark?.teacherFinalMark === undefined).length;
   const finalSubmittedCount = rows.filter((row) => row.slot?.status === "final_submitted").length;
+  const finalSubmittedDeliverableCount = deliverableRows.filter(
+    (row) => row.slot.status === "final_submitted",
+  ).length;
   const latestSubmission = rows
     .map((row) => row.latestVersion?.submittedAt ?? row.slot?.submittedAt)
     .filter((submittedAt): submittedAt is Date => Boolean(submittedAt))
@@ -186,6 +224,7 @@ export default async function TeacherStudentReportPage({
   });
   const readiness = buildReportReadiness({
     rows,
+    deliverableRows,
     hasConsistencyReview: consistencyChecks.length > 0,
     consistencyIssueCount: consistencyChecks.filter((check) => check.status !== "met").length,
     hasAuditEvents: auditLogs.length > 0,
@@ -237,6 +276,10 @@ export default async function TeacherStudentReportPage({
           />
           <ReportMetric label="Final submitted" value={`${finalSubmittedCount}/${rows.length}`} />
           <ReportMetric
+            label="Deliverables locked"
+            value={`${finalSubmittedDeliverableCount}/${deliverableRows.length}`}
+          />
+          <ReportMetric
             label="Latest submission"
             value={latestSubmission ? latestSubmission.toLocaleDateString() : "None"}
           />
@@ -279,7 +322,7 @@ export default async function TeacherStudentReportPage({
             </div>
           ) : (
             <p className="text-sm text-emerald-900">
-              All required criterion files, final-submitted states, sent feedback, and final marks are present.
+              All required criterion states, deliverables, teacher feedback, and final marks are present.
             </p>
           )}
 
@@ -570,6 +613,7 @@ function ReadinessIssueRow({ issue }: { issue: ReadinessIssue }) {
 
 function buildReportReadiness({
   rows,
+  deliverableRows,
   hasConsistencyReview,
   consistencyIssueCount,
   hasAuditEvents,
@@ -580,7 +624,16 @@ function buildReportReadiness({
     latestVersion?: unknown | null;
     files: unknown[];
     sentFeedback?: unknown | null;
+    feedbackContent?: string;
     finalMark?: { teacherFinalMark: number | null } | null;
+  }>;
+  deliverableRows: Array<{
+    deliverable: { title: string };
+    slot: { status: SubmissionStatus };
+    latestVersion?: unknown | null;
+    files: unknown[];
+    artifactUrl?: string | null;
+    hasEvidence: boolean;
   }>;
   hasConsistencyReview: boolean;
   consistencyIssueCount: number;
@@ -608,30 +661,62 @@ function buildReportReadiness({
     }
 
     if (!row.latestVersion) {
-      blockingIssues.push({
+      warnings.push({
         label: criterionLabel,
-        detail: "No submitted version is available.",
+        detail:
+          "No direct criterion document version is available. This may be expected when progress is derived from linked deliverables.",
       });
     }
 
     if (row.files.length === 0) {
-      blockingIssues.push({
+      warnings.push({
         label: criterionLabel,
-        detail: "No file is attached to the latest submitted version.",
+        detail:
+          "No direct criterion file is attached. Check linked deliverables for the submitted evidence.",
       });
     }
 
-    if (!row.sentFeedback) {
+    if (!row.feedbackContent) {
       blockingIssues.push({
         label: criterionLabel,
-        detail: "No sent teacher feedback snapshot is available.",
+        detail: "No student-visible teacher feedback is available.",
       });
     }
 
-    if (row.finalMark?.teacherFinalMark === undefined || row.finalMark.teacherFinalMark === null) {
+    if (
+      row.latestVersion &&
+      (row.finalMark?.teacherFinalMark === undefined ||
+        row.finalMark.teacherFinalMark === null)
+    ) {
       blockingIssues.push({
         label: criterionLabel,
         detail: "No teacher final mark has been saved.",
+      });
+    } else if (
+      !row.latestVersion &&
+      (row.finalMark?.teacherFinalMark === undefined ||
+        row.finalMark.teacherFinalMark === null)
+    ) {
+      warnings.push({
+        label: criterionLabel,
+        detail:
+          "No teacher final mark is attached because this criterion was derived from linked deliverables.",
+      });
+    }
+  });
+
+  deliverableRows.forEach((row) => {
+    if (row.slot.status !== "final_submitted") {
+      blockingIssues.push({
+        label: row.deliverable.title,
+        detail: `Deliverable status is ${formatSubmissionStatus(row.slot.status)}. Final export preparation expects Final Submitted.`,
+      });
+    }
+
+    if (!row.hasEvidence) {
+      blockingIssues.push({
+        label: row.deliverable.title,
+        detail: "No submitted file or evidence link is available.",
       });
     }
   });
