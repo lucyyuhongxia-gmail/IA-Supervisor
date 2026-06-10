@@ -25,6 +25,12 @@ This creates:
 
 ## Run
 
+Check the configured provider first:
+
+```bash
+npm run ai-review:check-provider
+```
+
 Preview which official reviews would run:
 
 ```bash

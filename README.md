@@ -137,6 +137,14 @@ DEEPSEEK_MODEL="deepseek-chat"
 
 Use the model name supported by your DeepSeek account, for example `deepseek-chat` or another compatible model configured for your API key.
 
+Check the provider before running real reviews:
+
+```bash
+npm run ai-review:check-provider
+```
+
+This command loads `.env`, masks the API key in output, and performs one minimal chat-completions request. Use it before batch-running official example reviews.
+
 AI review uses the local assessment reference files in:
 
 ```text
@@ -268,6 +276,7 @@ The benchmark compares stored AI review output with the official examiner commen
 npm run dev
 npm run build
 npm run lint
+npm run ai-review:check-provider
 npm run ai-review:evaluate -- --slot-id <submissionSlotId>
 npm run ai-review:run-official -- --dry-run
 npm run ai-review:benchmark-official -- --allow-missing

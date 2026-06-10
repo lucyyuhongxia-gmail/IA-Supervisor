@@ -1,5 +1,7 @@
 #!/usr/bin/env tsx
 
+import "dotenv/config";
+
 import type { SubmissionStatus, UserRole } from "@prisma/client";
 
 import { runAIReviewForSlot } from "@/lib/ai-review";

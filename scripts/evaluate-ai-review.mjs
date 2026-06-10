@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import "dotenv/config";
+
 import { readFile } from "node:fs/promises";
 import { PrismaClient } from "@prisma/client";
 
