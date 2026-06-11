@@ -119,12 +119,20 @@ export default async function StudentClassPage({
       latestVersion,
       slot,
     });
+    const latestFiles =
+      latestVersion?.fileAssets.length
+        ? latestVersion.fileAssets
+        : slot?.fileAssets ?? [];
+    const latestArtifactUrl = latestVersion?.artifactUrl ?? slot?.artifactUrl;
 
     return {
       deliverable,
       slot,
       status: slot?.status ?? "not_started",
       evidence,
+      latestVersion,
+      latestFiles,
+      latestArtifactUrl,
     };
   });
   const finalReadiness = buildFinalReadiness({
@@ -149,11 +157,20 @@ export default async function StudentClassPage({
         ? latestVersion.fileAssets
         : slot?.fileAssets ?? [];
     const status = slot?.status ?? "not_started";
+    const teacherFeedback =
+      latestVersion?.feedbackSnapshots[0]?.content ??
+      latestVersion?.teacherFeedback ??
+      slot?.teacherFeedback;
+    const reviewedAt = latestVersion?.reviewedAt ?? slot?.reviewedAt;
 
     return {
       criterion,
       slot,
       status,
+      latestVersion,
+      latestFiles,
+      teacherFeedback,
+      reviewedAt,
       hasSubmittedVersion: Boolean(latestVersion),
       hasFile: latestFiles.length > 0,
       isPassed: isPassedOrFinal(status),
@@ -219,9 +236,9 @@ export default async function StudentClassPage({
         <CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <CardTitle className="text-lg">Completion status</CardTitle>
+              <CardTitle className="text-lg">Class progress</CardTitle>
               <CardDescription>
-                Final submission becomes available after every criterion and deliverable is passed.
+                Open the item that needs work. Final submission unlocks after all required items are passed.
               </CardDescription>
             </div>
             <p
@@ -239,28 +256,6 @@ export default async function StudentClassPage({
         </CardHeader>
         <CardContent>
           <div className="grid gap-5">
-            <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  {isFinalSubmitted
-                    ? "Your IA submission is final submitted and all criterion uploads are locked."
-                    : canFinalize
-                      ? "All criteria and deliverables are passed. Finalize only when you are ready to lock the full IA submission."
-                      : "Resolve the items below before final submission is available."}
-                </p>
-                {finalSubmittedAt ? (
-                  <p className="mt-2 text-xs font-medium text-emerald-900">
-                    Locked {finalSubmittedAt.toLocaleString()}
-                  </p>
-                ) : null}
-              </div>
-              <FinalSubmissionForm
-                classId={classRecord.id}
-                canFinalize={canFinalize}
-                isFinalSubmitted={isFinalSubmitted}
-              />
-            </div>
-
             <div className="grid gap-2 sm:grid-cols-5">
               <CompletionMetric
                 label="Passed"
@@ -284,235 +279,259 @@ export default async function StudentClassPage({
               />
             </div>
 
-            {finalSubmissionBlockers.length > 0 ? (
-              <div className="rounded-md border bg-white/70 p-3">
-                <p className="text-sm font-medium">Before final submission</p>
-                <div className="mt-2 grid gap-1">
-                  {finalSubmissionBlockers.map((blocker) => (
-                    <p key={blocker} className="text-sm text-muted-foreground">
-                      {blocker}
-                    </p>
+            <div className="grid gap-3">
+              <div>
+                <p className="mb-2 text-sm font-medium">Criteria documents</p>
+                <div className="grid gap-2">
+                  {completionItems.map((item) => (
+                    <Link
+                      key={item.criterion.id}
+                      href={`/student/classes/${classRecord.id}/criteria/${item.criterion.id}`}
+                      className="grid gap-3 rounded-md border bg-white/80 p-3 text-sm transition-colors hover:bg-white sm:grid-cols-[1fr_auto] sm:items-center"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          Criterion {item.criterion.code}: {item.criterion.title}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <CompletionPill
+                            label={formatSubmissionStatus(item.status as SubmissionStatus)}
+                            tone={getCompletionPillTone(item.status)}
+                          />
+                          <CompletionPill
+                            label={item.hasFile ? "File uploaded" : "Missing file"}
+                            tone={item.hasFile ? "success" : "muted"}
+                          />
+                          {item.latestVersion ? (
+                            <CompletionPill
+                              label={`Latest v${item.latestVersion.versionNumber}`}
+                              tone="muted"
+                            />
+                          ) : null}
+                        </div>
+                        {item.latestFiles.length > 0 ? (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {item.latestFiles[0]?.originalName} ·{" "}
+                            {item.latestFiles[0]
+                              ? formatFileSize(item.latestFiles[0].sizeBytes)
+                              : ""}
+                          </p>
+                        ) : null}
+                        {item.teacherFeedback ? (
+                          <p className="mt-2 line-clamp-2 text-xs text-amber-900">
+                            Latest teacher feedback: {item.teacherFeedback}
+                          </p>
+                        ) : null}
+                        {item.reviewedAt ? (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Reviewed {item.reviewedAt.toLocaleString()}
+                          </p>
+                        ) : null}
+                      </div>
+                      <span className="w-fit rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground">
+                        {getCriterionActionLabel(item.status, item.criterion.code)}
+                      </span>
+                    </Link>
                   ))}
                 </div>
               </div>
-            ) : null}
 
-            <div className="grid gap-2">
-              {completionItems.map((item) => (
-                <Link
-                  key={item.criterion.id}
-                  href={`/student/classes/${classRecord.id}/criteria/${item.criterion.id}`}
-                  className="grid gap-3 rounded-md border bg-white/70 p-3 text-sm transition-colors hover:bg-white sm:grid-cols-[1fr_auto] sm:items-center"
-                >
-                  <div>
-                    <p className="font-medium">
-                      Criterion {item.criterion.code}: {item.criterion.title}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <CompletionPill
-                        label={formatSubmissionStatus(item.status as SubmissionStatus)}
-                        tone={getCompletionPillTone(item.status)}
-                      />
-                      <CompletionPill
-                        label={item.hasFile ? "File uploaded" : "Missing file"}
-                        tone={item.hasFile ? "success" : "muted"}
-                      />
-                      <CompletionPill
-                        label={item.isPassed ? "Passed" : "Not passed yet"}
-                        tone={item.isPassed ? "success" : "muted"}
-                      />
-                    </div>
+              {deliverablesWithSlots.length > 0 ? (
+                <div>
+                  <p className="mb-2 text-sm font-medium">Other required deliverables</p>
+                  <div className="grid gap-2">
+                    {deliverablesWithSlots.map(
+                      ({ deliverable, slot, status, latestVersion, latestFiles }) => (
+                        <Link
+                          key={deliverable.id}
+                          href={`/student/classes/${classRecord.id}/deliverables/${deliverable.id}`}
+                          className="grid gap-3 rounded-md border bg-white/80 p-3 text-sm transition-colors hover:bg-white sm:grid-cols-[1fr_auto] sm:items-center"
+                        >
+                          <div>
+                            <p className="font-medium">{deliverable.title}</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <CompletionPill
+                                label={formatSubmissionStatus(
+                                  (slot?.status ?? "not_started") as SubmissionStatus,
+                                )}
+                                tone={getCompletionPillTone(status)}
+                              />
+                              <CompletionPill
+                                label={latestFiles.length > 0 ? "File uploaded" : "Missing file"}
+                                tone={latestFiles.length > 0 ? "success" : "muted"}
+                              />
+                              {latestVersion ? (
+                                <CompletionPill
+                                  label={`Latest v${latestVersion.versionNumber}`}
+                                  tone="muted"
+                                />
+                              ) : null}
+                            </div>
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              {formatReviewMode(deliverable.reviewMode)}
+                              {deliverable.criteria.length > 0
+                                ? ` · Related to ${deliverable.criteria
+                                    .map((link) => `Criterion ${link.criterion.code}`)
+                                    .join(", ")}`
+                                : ""}
+                            </p>
+                            {latestFiles.length > 0 ? (
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {latestFiles[0]?.originalName} ·{" "}
+                                {latestFiles[0]
+                                  ? formatFileSize(latestFiles[0].sizeBytes)
+                                  : ""}
+                              </p>
+                            ) : null}
+                          </div>
+                          <span className="w-fit rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground">
+                            {getDeliverableActionLabel(status, deliverable.title)}
+                          </span>
+                        </Link>
+                      ),
+                    )}
                   </div>
-                  <span className="text-xs font-medium text-primary">
-                    Open Criterion {item.criterion.code}
-                  </span>
-                </Link>
-              ))}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="rounded-md border bg-white/80 p-3">
+              <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div>
+                  <p className="text-sm font-medium">Final IA submission</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {isFinalSubmitted
+                      ? "Your IA submission is final submitted and all uploads are locked."
+                      : canFinalize
+                        ? "All required items are passed. Finalize only when you are ready to lock the full IA submission."
+                        : "Final submission unlocks after every required item is passed."}
+                  </p>
+                  {finalSubmittedAt ? (
+                    <p className="mt-2 text-xs font-medium text-emerald-900">
+                      Locked {finalSubmittedAt.toLocaleString()}
+                    </p>
+                  ) : null}
+                </div>
+                <FinalSubmissionForm
+                  classId={classRecord.id}
+                  canFinalize={canFinalize}
+                  isFinalSubmitted={isFinalSubmitted}
+                />
+              </div>
+
+              {finalSubmissionBlockers.length > 0 ? (
+                <details className="mt-3 rounded-md border bg-muted/20 px-3 py-2">
+                  <summary className="cursor-pointer text-sm font-medium">
+                    Why final submission is not ready
+                  </summary>
+                  <div className="mt-2 grid gap-1">
+                    {finalSubmissionBlockers.map((blocker) => (
+                      <p key={blocker} className="text-sm text-muted-foreground">
+                        {blocker}
+                      </p>
+                    ))}
+                  </div>
+                </details>
+              ) : null}
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Submission plan</CardTitle>
-          <CardDescription>
-            Files expected for this class, copied from the subject template.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <details className="rounded-md border bg-card">
+        <summary className="flex cursor-pointer list-none flex-col gap-1 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <span className="font-medium">Submission plan reference</span>
+          <span className="text-sm text-muted-foreground">
+            Expected deliverables and assessment links
+          </span>
+        </summary>
+        <div className="border-t px-6 pb-6 pt-4">
           {classRecord.deliverables.length > 0 ? (
             <div className="grid gap-3">
-              {classRecord.deliverables.map((deliverable) => {
-                const deliverableSlot = deliverable.submissionSlots[0];
-                const latestVersion = deliverableSlot?.latestVersion;
-                const latestFiles =
-                  latestVersion?.fileAssets.length
-                    ? latestVersion.fileAssets
-                    : deliverableSlot?.fileAssets ?? [];
-                const latestArtifactUrl =
-                  latestVersion?.artifactUrl ?? deliverableSlot?.artifactUrl;
-
-                return (
-                  <div key={deliverable.id} className="rounded-md border p-3 text-sm">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="font-medium">{deliverable.title}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {formatReviewMode(deliverable.reviewMode)}
-                          {deliverable.fileRequirement
-                            ? ` · ${deliverable.fileRequirement}`
-                            : ""}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2 sm:justify-end">
-                        <span
-                          className={`w-fit rounded-md border px-2 py-1 text-xs font-semibold ${getCriterionStatusTone(deliverableSlot?.status ?? "not_started")}`}
-                        >
-                          {deliverableSlot
-                            ? formatSubmissionStatus(deliverableSlot.status)
-                            : "Not Started"}
-                        </span>
-                        <span className="w-fit rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
-                          #{deliverable.sortOrder}
-                        </span>
-                      </div>
-                    </div>
-                    {latestVersion ? (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        Latest v{latestVersion.versionNumber} ·{" "}
-                        {latestVersion.submittedAt.toLocaleString()}
-                      </p>
-                    ) : null}
-                    {latestFiles.length > 0 ? (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {latestFiles[0]?.originalName} ·{" "}
-                        {latestFiles[0] ? formatFileSize(latestFiles[0].sizeBytes) : ""}
-                      </p>
-                    ) : null}
-                    {latestArtifactUrl ? (
-                      <a
-                        href={latestArtifactUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-1 block break-all text-xs text-primary underline-offset-4 hover:underline"
-                      >
-                        {latestArtifactUrl}
-                      </a>
-                    ) : null}
-                    {deliverable.criteria.length > 0 ? (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {deliverable.criteria.map((link) => (
+              {deliverablesWithSlots.map(
+                ({
+                  deliverable,
+                  slot: deliverableSlot,
+                  latestVersion,
+                  latestFiles,
+                  latestArtifactUrl,
+                }) => {
+                  return (
+                    <div key={deliverable.id} className="rounded-md border p-3 text-sm">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="font-medium">{deliverable.title}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {formatReviewMode(deliverable.reviewMode)}
+                            {deliverable.fileRequirement
+                              ? ` · ${deliverable.fileRequirement}`
+                              : ""}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2 sm:justify-end">
                           <span
-                            key={link.id}
-                            className="rounded-md border bg-background px-2 py-1 text-xs font-medium"
+                            className={`w-fit rounded-md border px-2 py-1 text-xs font-semibold ${getCriterionStatusTone(deliverableSlot?.status ?? "not_started")}`}
                           >
-                            Criterion {link.criterion.code}
+                            {deliverableSlot
+                              ? formatSubmissionStatus(deliverableSlot.status)
+                              : "Not Started"}
                           </span>
-                        ))}
+                          <span className="w-fit rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
+                            #{deliverable.sortOrder}
+                          </span>
+                        </div>
                       </div>
-                    ) : null}
-                    {deliverable.description ? (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {deliverable.description}
-                      </p>
-                    ) : null}
-                    {deliverableSlot ? (
-                      <Button asChild size="sm" className="mt-3">
-                        <Link
-                          href={`/student/classes/${classRecord.id}/deliverables/${deliverable.id}`}
+                      {latestVersion ? (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Latest v{latestVersion.versionNumber} ·{" "}
+                          {latestVersion.submittedAt.toLocaleString()}
+                        </p>
+                      ) : null}
+                      {latestFiles.length > 0 ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {latestFiles[0]?.originalName} ·{" "}
+                          {latestFiles[0] ? formatFileSize(latestFiles[0].sizeBytes) : ""}
+                        </p>
+                      ) : null}
+                      {latestArtifactUrl ? (
+                        <a
+                          href={latestArtifactUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 block break-all text-xs text-primary underline-offset-4 hover:underline"
                         >
-                          {getDeliverableActionLabel(
-                            deliverableSlot.status,
-                            deliverable.title,
-                          )}
-                        </Link>
-                      </Button>
-                    ) : null}
-                  </div>
-                );
-              })}
+                          {latestArtifactUrl}
+                        </a>
+                      ) : null}
+                      {deliverable.criteria.length > 0 ? (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {deliverable.criteria.map((link) => (
+                            <span
+                              key={link.id}
+                              className="rounded-md border bg-background px-2 py-1 text-xs font-medium"
+                            >
+                              Criterion {link.criterion.code}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                      {deliverable.description ? (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {deliverable.description}
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                },
+              )}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
               This class does not have a submission plan yet.
             </p>
           )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Criterion submissions</CardTitle>
-          <CardDescription>
-            Open one criterion at a time to upload files, add a note, and view version history.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3">
-            {classRecord.subject.criteria.map((criterion) => {
-              const slot = criterion.submissionSlots[0];
-              const latestVersion = slot?.latestVersion;
-              const latestFiles =
-                latestVersion?.fileAssets.length
-                  ? latestVersion.fileAssets
-                  : slot?.fileAssets ?? [];
-              const status = slot?.status ?? "not_started";
-              const teacherFeedback =
-                latestVersion?.feedbackSnapshots[0]?.content ??
-                latestVersion?.teacherFeedback ??
-                slot?.teacherFeedback;
-              const reviewedAt = latestVersion?.reviewedAt ?? slot?.reviewedAt;
-
-              return (
-                <div
-                  key={criterion.id}
-                  className="flex flex-col gap-4 rounded-md border p-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div>
-                    <h2 className="font-medium">
-                      Criterion {criterion.code}: {criterion.title}
-                    </h2>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <p
-                        className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getCriterionStatusTone(status)}`}
-                      >
-                        {formatSubmissionStatus(status)}
-                      </p>
-                      {latestVersion ? (
-                        <p className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
-                          latest v{latestVersion.versionNumber}
-                        </p>
-                      ) : null}
-                    </div>
-                    {latestFiles.length > 0 ? (
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {latestFiles[0]?.originalName} ·{" "}
-                        {latestFiles[0] ? formatFileSize(latestFiles[0].sizeBytes) : ""}
-                      </p>
-                    ) : null}
-                    {teacherFeedback ? (
-                      <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
-                        Feedback: {teacherFeedback}
-                      </p>
-                    ) : null}
-                    {reviewedAt ? (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Reviewed {reviewedAt.toLocaleString()}
-                      </p>
-                    ) : null}
-                  </div>
-                  <Button asChild variant={status === "revision_needed" ? "default" : "outline"}>
-                    <Link href={`/student/classes/${classRecord.id}/criteria/${criterion.id}`}>
-                      {getCriterionActionLabel(status, criterion.code)}
-                    </Link>
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </details>
     </main>
   );
 }

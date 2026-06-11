@@ -113,6 +113,9 @@ and backlog supplement.
   secondary collapsed sections.
 - Student dashboard prioritizes current action items and class progress; join-class controls are primary only when a
   student has no classes and otherwise appear as a secondary collapsed section.
+- Student class page prioritizes the student's active submission work in one progress workspace; criteria documents,
+  required deliverables, latest teacher feedback, and final submission readiness are shown together, while the submission
+  plan is a secondary collapsed reference.
 - Teacher criterion review page includes a collapsed audit history for the latest workflow events.
 - Teachers can set review status:
   - `submitted`
