@@ -108,8 +108,12 @@ and backlog supplement.
 - Teachers can write feedback and save it to the current slot and latest version.
 - Teacher feedback form includes a built-in criterion-specific comment bank for IB CS IA 2027 feedback.
 - Comment templates append to the teacher draft only; teachers must edit and save/send them manually.
+- AI review copy actions and comment templates move focus to the teacher feedback draft so the teacher can edit before
+  saving or sending.
 - Teachers can save internal feedback drafts while a submission remains submitted or under review.
 - Setting a criterion to revision needed or passed sends the feedback to the student.
+- The teacher feedback form distinguishes teacher-only draft statuses from student-visible send statuses and confirms
+  whether saved feedback is visible to the student.
 - Passing a criterion requires teacher feedback, unless the slot is already final submitted.
 - Students can see teacher feedback and revise when needed.
 

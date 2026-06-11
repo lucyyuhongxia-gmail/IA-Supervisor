@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { SubmissionStatus } from "@prisma/client";
 
@@ -51,10 +51,21 @@ export function TeacherFeedbackForm({
     feedbackTemplates[0]?.id ?? "",
   );
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
+  const feedbackTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [state, formAction, isPending] = useActionState(
     updateTeacherFeedbackAction,
     {},
   );
+
+  const focusFeedbackTextarea = useCallback(() => {
+    window.setTimeout(() => {
+      feedbackTextareaRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      feedbackTextareaRef.current?.focus();
+    }, 0);
+  }, []);
 
   useEffect(() => {
     function handleCopyAIFeedback(event: Event) {
@@ -78,6 +89,7 @@ export function TeacherFeedbackForm({
         setCopyNotice("AI notes copied into feedback draft.");
         return nextFeedback.slice(0, teacherFeedbackMaxLength);
       });
+      focusFeedbackTextarea();
     }
 
     window.addEventListener(
@@ -91,7 +103,7 @@ export function TeacherFeedbackForm({
         handleCopyAIFeedback,
       );
     };
-  }, []);
+  }, [focusFeedbackTextarea]);
 
   useEffect(() => {
     if (state.success === "Feedback sent to the student.") {
@@ -120,13 +132,19 @@ export function TeacherFeedbackForm({
 
       if (nextFeedback.length > teacherFeedbackMaxLength) {
         setCopyNotice("Template was shortened to fit the feedback limit.");
+        focusFeedbackTextarea();
         return nextFeedback.slice(0, teacherFeedbackMaxLength);
       }
 
       setCopyNotice(`Template inserted: ${selectedTemplate.title}`);
+      focusFeedbackTextarea();
       return nextFeedback;
     });
   }
+
+  const isStudentVisible = isStudentVisibleStatus(selectedStatus);
+  const saveActionLabel = isStudentVisible ? "Send feedback" : "Save teacher draft";
+  const statusHelp = getStatusHelpText(selectedStatus);
 
   return (
     <form action={formAction} className="grid content-start gap-4 rounded-md border bg-card p-4">
@@ -136,7 +154,7 @@ export function TeacherFeedbackForm({
         <div>
           <p className="text-lg font-semibold tracking-normal">Review decision</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Set the status and send concise feedback to the student.
+            Decide what the student sees. Draft statuses stay teacher-only.
           </p>
         </div>
         <span
@@ -175,11 +193,18 @@ export function TeacherFeedbackForm({
             </option>
           ))}
         </select>
-        <p className="text-xs text-muted-foreground">
-          {isStudentVisibleStatus(selectedStatus)
-            ? "Saving with this status sends the feedback to the student."
-            : "Saving with this status keeps the feedback as a teacher draft."}
-        </p>
+        <div
+          className={`rounded-md border px-3 py-2 text-xs ${
+            isStudentVisible
+              ? "border-amber-200 bg-amber-50 text-amber-900"
+              : "border-blue-200 bg-blue-50 text-blue-900"
+          }`}
+        >
+          <p className="font-semibold">
+            {isStudentVisible ? "Student-visible send" : "Teacher-only draft"}
+          </p>
+          <p className="mt-1">{statusHelp}</p>
+        </div>
         {selectedStatus === "passed" ? (
           <div className="grid gap-1 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
             <p className="font-medium text-foreground">Before marking Passed</p>
@@ -234,6 +259,7 @@ export function TeacherFeedbackForm({
       <div className="grid gap-1">
         <Label htmlFor={`teacher-feedback-${slotId}`}>Feedback</Label>
         <textarea
+          ref={feedbackTextareaRef}
           id={`teacher-feedback-${slotId}`}
           name="teacherFeedback"
           value={feedbackDraft}
@@ -257,8 +283,19 @@ export function TeacherFeedbackForm({
         </div>
       </div>
       {state.success ? (
-        <div className="grid gap-2 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          <p>{state.success}</p>
+        <div className="grid gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-900">
+          <div>
+            <p className="font-semibold">
+              {state.success === "Feedback sent to the student."
+                ? "Feedback sent"
+                : "Teacher draft saved"}
+            </p>
+            <p className="mt-1 text-xs">
+              {state.success === "Feedback sent to the student."
+                ? "The student can now see this feedback on their criterion page."
+                : "This feedback is saved for teacher review and is not visible to the student yet."}
+            </p>
+          </div>
           <div className="flex flex-wrap gap-3">
             {nextReviewHref ? (
               <Link href={nextReviewHref} className="font-medium underline-offset-4 hover:underline">
@@ -279,9 +316,7 @@ export function TeacherFeedbackForm({
       <Button type="submit" size="sm" disabled={isPending}>
         {isPending
           ? "Saving..."
-          : isStudentVisibleStatus(selectedStatus)
-            ? "Send feedback"
-            : "Save draft"}
+          : saveActionLabel}
       </Button>
     </form>
   );
@@ -289,6 +324,21 @@ export function TeacherFeedbackForm({
 
 function isStudentVisibleStatus(status: SubmissionStatus) {
   return status === "revision_needed" || status === "passed";
+}
+
+function getStatusHelpText(status: SubmissionStatus) {
+  switch (status) {
+    case "revision_needed":
+      return "Sends feedback and returns the criterion to the student for a revised PDF.";
+    case "passed":
+      return "Sends final acceptance feedback for this criterion. Use only after checking the evidence yourself.";
+    case "submitted":
+      return "Keeps the item in the queue as newly submitted. Feedback is saved as an internal teacher draft.";
+    case "under_review":
+      return "Marks the item as being reviewed. Feedback is saved as an internal teacher draft.";
+    default:
+      return "This status is teacher-only for the current review workflow.";
+  }
 }
 
 function getStatusTone(status: SubmissionStatus) {
