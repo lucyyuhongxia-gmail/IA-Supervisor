@@ -151,7 +151,7 @@ export default async function TeacherStudentPage({
     : [];
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-8 px-6 py-10">
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-6 py-8">
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <Button asChild variant="ghost" size="sm" className="-ml-3 mb-3">
@@ -180,6 +180,55 @@ export default async function TeacherStudentPage({
           </Button>
         </div>
       </section>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="text-lg">Review focus</CardTitle>
+              <CardDescription>
+                Items for this student that currently need teacher attention.
+              </CardDescription>
+            </div>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/teacher/dashboard">Review queue</Link>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {reviewFocusSlots.length > 0 ? (
+            <div className="grid gap-2 sm:grid-cols-3">
+              {reviewFocusSlots.map((slot) => (
+                <Link
+                  key={slot.id}
+                  href={`/teacher/classes/${enrollment.class.id}/students/${enrollment.id}/criteria/${slot.criterion.id}`}
+                  className="rounded-md border p-3 text-sm transition-colors hover:bg-muted/60"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium">Criterion {slot.criterion.code}</p>
+                      <p className="mt-1 text-muted-foreground">
+                        {slot.latestVersion
+                          ? `v${slot.latestVersion.versionNumber} · ${slot.latestVersion.submittedAt.toLocaleDateString()}`
+                          : "No submitted version"}
+                      </p>
+                    </div>
+                    <p
+                      className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(slot.status)}`}
+                    >
+                      {formatReviewFocusStatus(slot.status)}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No active review items for this student.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -289,73 +338,41 @@ export default async function TeacherStudentPage({
         </Card>
       ) : null}
 
-      <ConsistencyReviewPanel
-        classId={enrollment.class.id}
-        enrollmentId={enrollment.id}
-        checks={consistencyChecks.map((check) => ({
-          id: check.id,
-          checkType: check.checkType,
-          status: check.status,
-          severity: check.severity,
-          summary: check.summary,
-          createdAtLabel: check.createdAt.toLocaleString(),
-          evidenceJson: check.evidenceJson,
-          sourceCriterionCode: check.sourceCriterion?.code ?? null,
-          targetCriterionCode: check.targetCriterion?.code ?? null,
-          requestedByName: check.requestedBy.name ?? check.requestedBy.email,
-        }))}
-      />
+      <details className="rounded-md border bg-card">
+        <summary className="cursor-pointer px-6 py-4">
+          <span className="font-medium">Consistency review</span>
+          <span className="ml-3 text-sm text-muted-foreground">
+            Cross-criterion checks and evidence alignment
+          </span>
+        </summary>
+        <div className="border-t p-4">
+          <ConsistencyReviewPanel
+            classId={enrollment.class.id}
+            enrollmentId={enrollment.id}
+            checks={consistencyChecks.map((check) => ({
+              id: check.id,
+              checkType: check.checkType,
+              status: check.status,
+              severity: check.severity,
+              summary: check.summary,
+              createdAtLabel: check.createdAt.toLocaleString(),
+              evidenceJson: check.evidenceJson,
+              sourceCriterionCode: check.sourceCriterion?.code ?? null,
+              targetCriterionCode: check.targetCriterion?.code ?? null,
+              requestedByName: check.requestedBy.name ?? check.requestedBy.email,
+            }))}
+          />
+        </div>
+      </details>
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <CardTitle className="text-lg">Review focus</CardTitle>
-              <CardDescription>
-                Criterion submissions that currently need teacher attention.
-              </CardDescription>
-            </div>
-            <Button asChild variant="outline" size="sm">
-              <Link href="/teacher/dashboard">Review queue</Link>
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {reviewFocusSlots.length > 0 ? (
-            <div className="grid gap-2 sm:grid-cols-3">
-              {reviewFocusSlots.map((slot) => (
-                <Link
-                  key={slot.id}
-                  href={`/teacher/classes/${enrollment.class.id}/students/${enrollment.id}/criteria/${slot.criterion.id}`}
-                  className="rounded-md border p-3 text-sm transition-colors hover:bg-muted/60"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium">Criterion {slot.criterion.code}</p>
-                      <p className="mt-1 text-muted-foreground">
-                        {slot.latestVersion
-                          ? `v${slot.latestVersion.versionNumber} · ${slot.latestVersion.submittedAt.toLocaleDateString()}`
-                          : "No submitted version"}
-                      </p>
-                    </div>
-                    <p
-                      className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(slot.status)}`}
-                    >
-                      {formatReviewFocusStatus(slot.status)}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No active review items for this student.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-4">
+      <details className="rounded-md border bg-card">
+        <summary className="cursor-pointer px-6 py-4">
+          <span className="font-medium">All criterion details</span>
+          <span className="ml-3 text-sm text-muted-foreground">
+            Files, feedback, and version history for criteria A-E
+          </span>
+        </summary>
+        <div className="grid gap-4 border-t p-4">
         {enrollment.class.subject.criteria.map((criterion) => {
           const slot = sortedSlots.find(
             (submissionSlot) => submissionSlot.criterionId === criterion.id,
@@ -516,7 +533,8 @@ export default async function TeacherStudentPage({
             </Card>
           );
         })}
-      </div>
+        </div>
+      </details>
     </main>
   );
 }
