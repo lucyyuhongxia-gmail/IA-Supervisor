@@ -17,8 +17,10 @@ type DeliverableFeedbackFormProps = {
   deliverableSlotId: string;
   currentStatus: SubmissionStatus;
   feedback: string;
-  queueHref: string;
   studentHref: string;
+  classHref: string;
+  reviewQueueHref: string;
+  nextReviewHref?: string;
   latestVersionLabel?: string;
   latestSubmittedLabel?: string;
   reviewedLabel?: string | null;
@@ -29,8 +31,10 @@ export function DeliverableFeedbackForm({
   deliverableSlotId,
   currentStatus,
   feedback,
-  queueHref,
   studentHref,
+  classHref,
+  reviewQueueHref,
+  nextReviewHref,
   latestVersionLabel,
   latestSubmittedLabel,
   reviewedLabel,
@@ -166,11 +170,19 @@ export function DeliverableFeedbackForm({
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
+            {nextReviewHref ? (
+              <Link href={nextReviewHref} className="font-medium underline-offset-4 hover:underline">
+                Next review item
+              </Link>
+            ) : null}
             <Link href={studentHref} className="font-medium underline-offset-4 hover:underline">
               Back to student
             </Link>
-            <Link href={queueHref} className="font-medium underline-offset-4 hover:underline">
-              Back to class
+            <Link href={classHref} className="font-medium underline-offset-4 hover:underline">
+              Class dashboard
+            </Link>
+            <Link href={reviewQueueHref} className="font-medium underline-offset-4 hover:underline">
+              Review queue
             </Link>
           </div>
         </div>

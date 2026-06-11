@@ -316,7 +316,7 @@ export default async function TeacherStudentPage({
               </CardDescription>
             </div>
             <Button asChild variant="outline" size="sm">
-              <Link href="/teacher/dashboard">Back to review queue</Link>
+              <Link href="/teacher/dashboard">Review queue</Link>
             </Button>
           </div>
         </CardHeader>

@@ -9,6 +9,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { extractFileText } from "@/lib/file-extraction";
 import { formatFileSize } from "@/lib/files";
 import { prisma } from "@/lib/prisma";
+import { getTeacherReviewQueue } from "@/lib/review-queue";
 import {
   ensureClassSubmissionSlots,
   formatSubmissionStatus,
@@ -152,6 +153,18 @@ export default async function TeacherDeliverableReviewPage({
   });
   const studentHref = `/teacher/classes/${classId}/students/${enrollment.id}`;
   const classHref = `/teacher/classes/${classId}`;
+  const reviewQueueHref = "/teacher/dashboard";
+  const reviewQueue = await getTeacherReviewQueue(user.id);
+  const currentQueueIndex = reviewQueue.findIndex(
+    (item) => item.itemType === "deliverable" && item.id === slot.id,
+  );
+  const nextReviewItem =
+    currentQueueIndex >= 0
+      ? reviewQueue[currentQueueIndex + 1]
+      : reviewQueue.find((item) => item.id !== slot.id);
+  const nextReviewLabel = nextReviewItem
+    ? `${nextReviewItem.studentName} · ${nextReviewItem.className} · ${nextReviewItem.reviewTitle}`
+    : "No next active item";
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-4 px-6 py-6">
@@ -165,6 +178,14 @@ export default async function TeacherDeliverableReviewPage({
               <Button asChild variant="outline" size="sm">
                 <Link href={classHref}>Class dashboard</Link>
               </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link href={reviewQueueHref}>Review queue</Link>
+              </Button>
+              {nextReviewItem ? (
+                <Button asChild size="sm">
+                  <Link href={nextReviewItem.href}>Next review item</Link>
+                </Button>
+              ) : null}
             </div>
             <p className="mt-4 text-sm font-medium text-muted-foreground">
               {enrollment.class.name} · {enrollment.student.name} · {enrollment.student.email}
@@ -193,7 +214,7 @@ export default async function TeacherDeliverableReviewPage({
             detail={artifactUrl ? "plus evidence link" : "submitted files"}
           />
           <SummaryTile label="Review mode" value={formatReviewMode(deliverable.reviewMode)} detail={linkedCriteriaLabel} />
-          <SummaryTile label="Teacher review" value={formatSubmissionStatus(slot.status)} detail={reviewedLabel} />
+          <SummaryTile label="Next queue item" value={nextReviewItem ? "Available" : "None"} detail={nextReviewLabel} />
         </div>
       </section>
 
@@ -453,8 +474,10 @@ export default async function TeacherDeliverableReviewPage({
             deliverableSlotId={slot.id}
             currentStatus={slot.status}
             feedback={feedback}
-            queueHref={classHref}
             studentHref={studentHref}
+            classHref={classHref}
+            reviewQueueHref={reviewQueueHref}
+            nextReviewHref={nextReviewItem?.href}
             latestVersionLabel={
               latestVersion
                 ? `Latest version: ${latestVersionLabel}`

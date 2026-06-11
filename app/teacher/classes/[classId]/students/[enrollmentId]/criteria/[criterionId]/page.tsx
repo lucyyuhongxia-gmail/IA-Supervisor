@@ -182,6 +182,8 @@ export default async function TeacherCriterionReviewPage({
   const nextReviewLabel = nextReviewItem
     ? `${nextReviewItem.studentName} · ${nextReviewItem.className} · ${nextReviewItem.reviewTitle}`
     : "No next active item";
+  const studentHref = `/teacher/classes/${classId}/students/${enrollment.id}`;
+  const classHref = `/teacher/classes/${classId}`;
   const semanticExtraction = latestVersion
     ? await prisma.semanticExtraction.findUnique({
         where: {
@@ -226,16 +228,19 @@ export default async function TeacherCriterionReviewPage({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <Button asChild variant="ghost" size="sm" className="-ml-3">
-                <Link href={`/teacher/classes/${classId}/students/${enrollment.id}`}>
+                <Link href={studentHref}>
                   Back to student
                 </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link href={classHref}>Class dashboard</Link>
               </Button>
               <Button asChild variant="outline" size="sm">
                 <Link href="/teacher/dashboard">Review queue</Link>
               </Button>
               {nextReviewItem ? (
                 <Button asChild size="sm">
-                  <Link href={nextReviewItem.href}>Next item</Link>
+                  <Link href={nextReviewItem.href}>Next review item</Link>
                 </Button>
               ) : null}
             </div>
