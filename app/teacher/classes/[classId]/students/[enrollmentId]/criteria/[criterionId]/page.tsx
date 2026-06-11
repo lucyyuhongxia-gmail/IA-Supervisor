@@ -169,6 +169,19 @@ export default async function TeacherCriterionReviewPage({
     files,
     fileExtractionPreviews,
   });
+  const readableFileCount = fileExtractionPreviews.filter(
+    (preview) => preview.extraction.status === "success",
+  ).length;
+  const latestVersionLabel = latestVersion
+    ? `v${latestVersion.versionNumber}`
+    : "No version";
+  const latestSubmittedLabel = latestVersion
+    ? latestVersion.submittedAt.toLocaleString()
+    : "Not submitted";
+  const reviewedLabel = reviewedAt ? reviewedAt.toLocaleString() : "Not reviewed";
+  const nextReviewLabel = nextReviewItem
+    ? `${nextReviewItem.studentName} · ${nextReviewItem.className} · ${nextReviewItem.reviewTitle}`
+    : "No next active item";
   const semanticExtraction = latestVersion
     ? await prisma.semanticExtraction.findUnique({
         where: {
@@ -207,66 +220,66 @@ export default async function TeacherCriterionReviewPage({
   });
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-6 py-8">
-      <section className="grid gap-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button asChild variant="ghost" size="sm" className="-ml-3">
-            <Link href={`/teacher/classes/${classId}/students/${enrollment.id}`}>
-              Back to student
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/teacher/dashboard">Review queue</Link>
-          </Button>
-          {nextReviewItem ? (
-            <Button asChild size="sm">
-              <Link href={nextReviewItem.href}>Next item</Link>
-            </Button>
-          ) : null}
-        </div>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">
-              {enrollment.class.name} · {enrollment.student.name}
+    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-4 px-6 py-6">
+      <section className="rounded-md border bg-card p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button asChild variant="ghost" size="sm" className="-ml-3">
+                <Link href={`/teacher/classes/${classId}/students/${enrollment.id}`}>
+                  Back to student
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/teacher/dashboard">Review queue</Link>
+              </Button>
+              {nextReviewItem ? (
+                <Button asChild size="sm">
+                  <Link href={nextReviewItem.href}>Next item</Link>
+                </Button>
+              ) : null}
+            </div>
+            <p className="mt-4 text-sm font-medium text-muted-foreground">
+              {enrollment.class.name} · {enrollment.student.name} · {enrollment.student.email}
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-normal">
+            <h1 className="mt-1 text-3xl font-semibold tracking-normal">
               Criterion {criterion.code}: {criterion.title}
             </h1>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-              <span
-                className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(slot.status)}`}
-              >
-                {formatSubmissionStatus(slot.status)}
-              </span>
-              <span className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
-                {criterion.maxMarks} marks
-              </span>
-              {latestVersion ? (
-                <span className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
-                  Latest v{latestVersion.versionNumber}
-                </span>
-              ) : null}
-              <span className="text-muted-foreground">{enrollment.student.email}</span>
-            </div>
           </div>
-          {nextReviewItem ? (
-            <p className="max-w-xl text-sm text-muted-foreground lg:text-right">
-              Next: {nextReviewItem.studentName} · {nextReviewItem.className} ·{" "}
-              {nextReviewItem.reviewTitle}
-            </p>
-          ) : (
-            <p className="text-sm text-muted-foreground">No next active item.</p>
-          )}
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            <span
+              className={`inline-flex rounded-md border px-3 py-2 text-sm font-semibold ${getStatusTone(slot.status)}`}
+            >
+              {formatSubmissionStatus(slot.status)}
+            </span>
+            <span className="inline-flex rounded-md border px-3 py-2 text-sm text-muted-foreground">
+              {criterion.maxMarks} marks
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-2 md:grid-cols-4">
+          <SummaryTile label="Latest version" value={latestVersionLabel} detail={latestSubmittedLabel} />
+          <SummaryTile
+            label="Readable files"
+            value={`${readableFileCount}/${files.length}`}
+            detail={files.length === 1 ? "submitted file" : "submitted files"}
+          />
+          <SummaryTile label="Teacher review" value={formatSubmissionStatus(slot.status)} detail={reviewedLabel} />
+          <SummaryTile label="Next queue item" value={nextReviewItem ? "Available" : "None"} detail={nextReviewLabel} />
         </div>
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-start">
         <div className="grid min-w-0 gap-4">
-          <Card>
+          <Card id="submitted-evidence">
             <CardHeader className="p-4 pb-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <CardTitle className="text-lg">Submitted evidence</CardTitle>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Step 1
+                  </p>
+                  <CardTitle className="mt-1 text-lg">Check submitted evidence</CardTitle>
                   <CardDescription>
                     Open the PDF and confirm readable text before relying on AI notes.
                   </CardDescription>
@@ -318,7 +331,7 @@ export default async function TeacherCriterionReviewPage({
                               <iframe
                                 src={`/api/files/${fileAsset.id}?disposition=inline#toolbar=1&navpanes=0`}
                                 title={`PDF preview for ${fileAsset.originalName}`}
-                                className="h-[640px] w-full rounded-md border bg-background"
+                                className="h-[720px] w-full rounded-md border bg-background"
                               />
                               <p className="mt-2 text-xs text-muted-foreground">
                                 If the preview is blank, open the file link above.
@@ -354,37 +367,73 @@ export default async function TeacherCriterionReviewPage({
             </CardContent>
           </Card>
 
-          <AIReviewHistory
-            latestVersionId={slot.latestVersionId}
-            runs={slot.aiReviewRuns.map((run) => ({
-              id: run.id,
-              submissionVersionId: run.submissionVersionId,
-              provider: run.provider,
-              modelName: run.modelName,
-              referenceKey: run.referenceKey,
-              status: run.status,
-              summary: run.summary,
-              confidence: run.confidence,
-              errorMessage: run.errorMessage,
-              createdAtLabel: run.createdAt.toLocaleString(),
-              requestedByName: run.requestedBy.name,
-              rawResponse: run.rawResponse,
-              findings: run.findings.map((finding) => ({
-                id: finding.id,
-                type: finding.type,
-                text: finding.text,
-              })),
-            }))}
-          />
+          <section id="ai-review" className="grid gap-2">
+            <div className="px-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Step 2
+              </p>
+              <h2 className="mt-1 text-lg font-semibold tracking-normal">
+                Use AI notes as decision support
+              </h2>
+            </div>
+            <AIReviewHistory
+              latestVersionId={slot.latestVersionId}
+              runs={slot.aiReviewRuns.map((run) => ({
+                id: run.id,
+                submissionVersionId: run.submissionVersionId,
+                provider: run.provider,
+                modelName: run.modelName,
+                referenceKey: run.referenceKey,
+                status: run.status,
+                summary: run.summary,
+                confidence: run.confidence,
+                errorMessage: run.errorMessage,
+                createdAtLabel: run.createdAt.toLocaleString(),
+                requestedByName: run.requestedBy.name,
+                rawResponse: run.rawResponse,
+                findings: run.findings.map((finding) => ({
+                  id: finding.id,
+                  type: finding.type,
+                  text: finding.text,
+                })),
+              }))}
+            />
+          </section>
 
           <details className="rounded-md border bg-card">
             <summary className="cursor-pointer px-4 py-3 text-sm">
-              <span className="font-medium">Advanced review tools</span>
+              <span className="font-medium">More review tools</span>
               <span className="ml-3 text-muted-foreground">
-                Delta review, marking assistant, and semantic extraction
+                Semantic extraction, version delta, and marking assistant
               </span>
             </summary>
             <div className="grid gap-4 border-t p-4">
+              <SemanticExtractionPanel
+                classId={enrollment.class.id}
+                slotId={slot.id}
+                disabled={!slot.latestVersionId}
+                extraction={
+                  semanticExtraction
+                    ? {
+                        id: semanticExtraction.id,
+                        status: semanticExtraction.status,
+                        confidence: semanticExtraction.confidence,
+                        sourceCharacterCount:
+                          semanticExtraction.sourceCharacterCount,
+                        message: semanticExtraction.message,
+                        createdAtLabel: semanticExtraction.createdAt.toLocaleString(),
+                        confirmedAtLabel:
+                          semanticExtraction.confirmedAt?.toLocaleString() ?? null,
+                        confirmedByName:
+                          semanticExtraction.confirmedBy?.name ??
+                          semanticExtraction.confirmedBy?.email ??
+                          null,
+                        extractedJson: semanticExtraction.extractedJson,
+                      }
+                    : null
+                }
+              />
+
               <DeltaReviewPanel
                 classId={enrollment.class.id}
                 slotId={slot.id}
@@ -440,32 +489,6 @@ export default async function TeacherCriterionReviewPage({
                         finalMarkedAtLabel:
                           latestMarkingSnapshot.finalMarkedAt?.toLocaleString() ??
                           null,
-                      }
-                    : null
-                }
-              />
-
-              <SemanticExtractionPanel
-                classId={enrollment.class.id}
-                slotId={slot.id}
-                disabled={!slot.latestVersionId}
-                extraction={
-                  semanticExtraction
-                    ? {
-                        id: semanticExtraction.id,
-                        status: semanticExtraction.status,
-                        confidence: semanticExtraction.confidence,
-                        sourceCharacterCount:
-                          semanticExtraction.sourceCharacterCount,
-                        message: semanticExtraction.message,
-                        createdAtLabel: semanticExtraction.createdAt.toLocaleString(),
-                        confirmedAtLabel:
-                          semanticExtraction.confirmedAt?.toLocaleString() ?? null,
-                        confirmedByName:
-                          semanticExtraction.confirmedBy?.name ??
-                          semanticExtraction.confirmedBy?.email ??
-                          null,
-                        extractedJson: semanticExtraction.extractedJson,
                       }
                     : null
                 }
@@ -594,7 +617,19 @@ export default async function TeacherCriterionReviewPage({
           </details>
         </div>
 
-        <aside className="grid gap-3 lg:sticky lg:top-24">
+        <aside className="grid gap-3 lg:sticky lg:top-20">
+          <div className="rounded-md border bg-muted/30 px-3 py-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Step 3
+            </p>
+            <h2 className="mt-1 text-lg font-semibold tracking-normal">
+              Decide and send
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Use AI only as support. The saved status controls whether feedback is teacher-only or visible to the student.
+            </p>
+          </div>
+
           <AIReviewForm
             classId={enrollment.class.id}
             slotId={slot.id}
@@ -619,22 +654,38 @@ export default async function TeacherCriterionReviewPage({
               nextReviewHref={nextReviewItem?.href}
               latestVersionLabel={
                 latestVersion
-                  ? `Latest version: v${latestVersion.versionNumber}`
+                  ? `Latest version: ${latestVersionLabel}`
                   : "No submitted version yet"
               }
               latestSubmittedLabel={
-                latestVersion
-                  ? `Submitted ${latestVersion.submittedAt.toLocaleString()}`
-                  : undefined
+                latestVersion ? `Submitted ${latestSubmittedLabel}` : undefined
               }
               reviewedLabel={
-                reviewedAt ? `Reviewed ${reviewedAt.toLocaleString()}` : null
+                reviewedAt ? `Reviewed ${reviewedLabel}` : null
               }
             />
           )}
         </aside>
       </div>
     </main>
+  );
+}
+
+function SummaryTile({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-md border bg-background px-3 py-2">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="mt-1 truncate text-sm font-semibold">{value}</p>
+      <p className="mt-1 truncate text-xs text-muted-foreground">{detail}</p>
+    </div>
   );
 }
 

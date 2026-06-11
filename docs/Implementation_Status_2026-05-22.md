@@ -95,6 +95,8 @@ and backlog supplement.
 - Teacher class page shows student list and criterion status.
 - Teacher student detail page shows one student's criterion progress.
 - Teacher criterion review page shows submission files, extraction preview, AI review history, and feedback controls.
+- Teacher criterion review page uses a three-step review workspace: check submitted evidence, use AI notes as decision
+  support, then decide/send feedback from a sticky decision panel.
 - Teacher criterion review page includes a collapsed audit history for the latest workflow events.
 - Teachers can set review status:
   - `submitted`
