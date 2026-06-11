@@ -84,6 +84,7 @@ export default async function TeacherDashboardPage({
     (item) => item.status === "passed" || item.status === "final_submitted",
   ).length;
   const needsAIReviewCount = reviewQueueItems.filter((item) =>
+    ["submitted", "under_review"].includes(item.status) &&
     ["missing", "stale", "failed"].includes(item.aiReviewState),
   ).length;
 
@@ -101,7 +102,7 @@ export default async function TeacherDashboardPage({
         <MetricPill label="Classes" value={classes.length} />
         <MetricPill label="Awaiting review" value={awaitingReviewCount} />
         <MetricPill label="Needs revision" value={revisionNeededCount} />
-        <MetricPill label="Passed" value={passedCount} />
+        <MetricPill label="Completed" value={passedCount} />
         <MetricPill label="Needs AI review" value={needsAIReviewCount} />
       </div>
 
@@ -111,7 +112,7 @@ export default async function TeacherDashboardPage({
             <div>
               <CardTitle className="text-lg">Review queue</CardTitle>
               <CardDescription>
-                Prioritized across classes: new submissions first, in-review items next, revisions lower.
+                Active queue shows teacher-action items only. Revisions and completed work stay in their own filters.
               </CardDescription>
             </div>
             <div className="text-sm text-muted-foreground">

@@ -7,7 +7,7 @@ export const reviewQueueFilters = [
   { value: "awaiting", label: "Awaiting" },
   { value: "under_review", label: "Under review" },
   { value: "revision_needed", label: "Needs revision" },
-  { value: "passed", label: "Passed" },
+  { value: "completed", label: "Completed" },
   { value: "all", label: "All" },
 ] as const;
 
@@ -252,6 +252,10 @@ function getAIReviewQueueState(
 }
 
 export function getReviewQueueFilter(value: string | undefined): ReviewQueueFilter {
+  if (value === "passed") {
+    return "completed";
+  }
+
   const filter = reviewQueueFilters.find((item) => item.value === value);
   return filter?.value ?? "active";
 }
@@ -267,12 +271,12 @@ export function matchesReviewQueueFilter(
       return status === "under_review";
     case "revision_needed":
       return status === "revision_needed";
-    case "passed":
+    case "completed":
       return status === "passed" || status === "final_submitted";
     case "all":
       return true;
     case "active":
     default:
-      return ["submitted", "under_review", "revision_needed"].includes(status);
+      return ["submitted", "under_review"].includes(status);
   }
 }
