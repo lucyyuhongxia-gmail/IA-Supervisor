@@ -165,6 +165,8 @@ and backlog supplement.
   - assessment reference key
 - AI review shows extraction status and evidence snippets where available.
 - AI review separates strengths, concerns, suggestions, and rubric alignment.
+- Teacher criterion review page shows AI review decision support, including current/stale status, extraction readiness,
+  rubric check capture, student-facing draft preview, teacher-only examiner notes, and explicit copy-to-feedback actions.
 - AI review prompt v2 asks the model to act like an experienced IB DP CS teacher/examiner, follow only the 2027
   syllabus, cite evidence for each concern/suggestion, and provide specific revision guidance.
 - AI review prompt v3 strengthens student-facing feedback quality by requiring Markdown-ready feedback with Summary,

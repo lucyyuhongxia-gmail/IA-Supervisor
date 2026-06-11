@@ -43,6 +43,13 @@ type QualityControlView = {
   teacherDecisionPolicy: string;
 };
 
+type ReviewReadinessView = {
+  label: string;
+  tone: "ready" | "caution" | "blocked";
+  detail: string;
+  action: string;
+};
+
 export function AIReviewHistory({ runs, latestVersionId }: AIReviewHistoryProps) {
   const latestRun = runs[0];
   const olderRuns = runs.slice(1);
@@ -102,31 +109,37 @@ function AIReviewQualityPanel({
   const rubricAlignment = getAIReviewRubricAlignment(run.rawResponse);
   const reviewCoversLatestVersion =
     Boolean(latestVersionId) && run.submissionVersionId === latestVersionId;
+  const readiness = getReviewReadiness({
+    run,
+    qualityControls,
+    rubricAlignment,
+    reviewCoversLatestVersion,
+  });
 
   return (
     <div className="grid gap-3 rounded-md border bg-muted/20 p-3 text-sm">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="font-medium">AI review quality controls</p>
+          <p className="font-medium">AI review decision support</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            These checks protect the teacher decision from stale reviews, weak extraction,
-            or the wrong assessment standard.
+            Use this status before copying AI notes into teacher feedback.
           </p>
         </div>
         <span
-          className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${
-            reviewCoversLatestVersion
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-amber-200 bg-amber-50 text-amber-800"
-          }`}
+          className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getReadinessTone(readiness.tone)}`}
         >
-          {reviewCoversLatestVersion ? "Current version" : "Needs rerun"}
+          {readiness.label}
         </span>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className="rounded-md border bg-background px-3 py-2">
+        <p className="font-medium">{readiness.detail}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{readiness.action}</p>
+      </div>
+
+      <div className="grid gap-2 md:grid-cols-4">
         <QualityControlMetric
-          label="Assessment"
+          label="Standard"
           value={qualityControls.assessmentStandard}
           detail={qualityControls.referenceKey}
         />
@@ -136,10 +149,22 @@ function AIReviewQualityPanel({
           detail={`${qualityControls.readableFiles}/${qualityControls.totalFiles} readable files`}
         />
         <QualityControlMetric
-          label="Teacher decision"
-          value="Independent"
-          detail="AI notes are draft support only"
+          label="Version"
+          value={reviewCoversLatestVersion ? "Current" : "Stale"}
+          detail={reviewCoversLatestVersion ? "Latest submitted version" : "Student has a newer version"}
         />
+        <QualityControlMetric
+          label="Rubric checks"
+          value={rubricAlignment.length > 0 ? `${rubricAlignment.length} captured` : "Missing"}
+          detail={rubricAlignment.length > 0 ? "Evidence-aligned checklist" : "Rerun for structured checks"}
+        />
+      </div>
+
+      <div className="grid gap-2 rounded-md border bg-background p-3 text-xs text-muted-foreground md:grid-cols-4">
+        <WorkflowStep label="1. Inspect" detail="Check extraction and evidence." />
+        <WorkflowStep label="2. Adapt" detail="Copy useful AI draft only." />
+        <WorkflowStep label="3. Edit" detail="Use teacher judgement." />
+        <WorkflowStep label="4. Send" detail="Status sends feedback." />
       </div>
 
       {rubricAlignment.length > 0 ? (
@@ -177,6 +202,15 @@ function AIReviewQualityPanel({
   );
 }
 
+function WorkflowStep({ label, detail }: { label: string; detail: string }) {
+  return (
+    <div>
+      <p className="font-semibold text-foreground">{label}</p>
+      <p className="mt-1">{detail}</p>
+    </div>
+  );
+}
+
 function QualityControlMetric({
   label,
   value,
@@ -206,6 +240,7 @@ function AIReviewRunCard({
 }) {
   const diagnostics = getAIReviewExtractionDiagnostics(run.rawResponse);
   const feedbackDraft = getAIReviewStudentFeedbackDraft(run.rawResponse) ?? buildFeedbackDraft(run);
+  const teacherExaminerNotes = getAIReviewTeacherExaminerNotes(run.rawResponse);
   const summaryDraft = buildSummaryFeedbackDraft(run);
   const concernsDraft = buildFindingFeedbackDraft(run, "Concerns", "concern");
   const suggestionsDraft = buildFindingFeedbackDraft(
@@ -272,9 +307,14 @@ function AIReviewRunCard({
       ) : null}
 
       {run.summary ? (
-        <p className="mt-3 whitespace-pre-wrap rounded-md border bg-muted/20 px-3 py-2 text-muted-foreground">
-          {run.summary}
-        </p>
+        <section className="mt-3 rounded-md border bg-muted/20 px-3 py-2">
+          <p className="text-xs font-semibold uppercase text-muted-foreground">
+            Summary
+          </p>
+          <p className="mt-2 whitespace-pre-wrap text-muted-foreground">
+            {run.summary}
+          </p>
+        </section>
       ) : null}
       {run.errorMessage ? (
         <p className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-700">
@@ -282,7 +322,15 @@ function AIReviewRunCard({
         </p>
       ) : null}
       {primaryFindings.length > 0 ? (
-        <div className="mt-3 grid gap-2">
+        <section className="mt-3 grid gap-2">
+          <div>
+            <p className="text-xs font-semibold uppercase text-muted-foreground">
+              Evidence-focused findings
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Use these to decide whether the AI draft is grounded in the student document.
+            </p>
+          </div>
           {primaryFindings.map((finding) => (
             <div
               key={finding.id}
@@ -292,7 +340,7 @@ function AIReviewRunCard({
               <p className="mt-1 whitespace-pre-wrap">{finding.text}</p>
             </div>
           ))}
-        </div>
+        </section>
       ) : null}
       {hiddenFindings.length > 0 ? (
         <details className="mt-3 rounded-md border bg-muted/20">
@@ -312,6 +360,31 @@ function AIReviewRunCard({
           </div>
         </details>
       ) : null}
+      {isCompleted && feedbackDraft ? (
+        <details className="mt-3 rounded-md border bg-background" open={isLatest}>
+          <summary className="cursor-pointer px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
+            Student-facing feedback draft
+          </summary>
+          <div className="border-t p-3">
+            <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-md bg-muted/30 p-3 text-xs leading-6 text-foreground">
+              {feedbackDraft}
+            </pre>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Copy this only as a teacher draft, then edit before sending.
+            </p>
+          </div>
+        </details>
+      ) : null}
+      {teacherExaminerNotes ? (
+        <details className="mt-3 rounded-md border bg-muted/20">
+          <summary className="cursor-pointer px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
+            Teacher-only examiner notes
+          </summary>
+          <p className="border-t p-3 text-xs leading-6 text-muted-foreground">
+            {teacherExaminerNotes}
+          </p>
+        </details>
+      ) : null}
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         {run.confidence ? (
           <p className="text-xs text-muted-foreground">
@@ -329,7 +402,7 @@ function AIReviewRunCard({
                 variant="outline"
                 onClick={() => copyToFeedback(summaryDraft)}
               >
-                Copy summary
+                Use summary
               </Button>
             ) : null}
             {concernsDraft ? (
@@ -339,7 +412,7 @@ function AIReviewRunCard({
                 variant="outline"
                 onClick={() => copyToFeedback(concernsDraft)}
               >
-                Copy concerns
+                Use concerns
               </Button>
             ) : null}
             {suggestionsDraft ? (
@@ -349,7 +422,7 @@ function AIReviewRunCard({
                 variant="outline"
                 onClick={() => copyToFeedback(suggestionsDraft)}
               >
-                Copy suggestions
+                Use next steps
               </Button>
             ) : null}
             {feedbackDraft ? (
@@ -359,7 +432,7 @@ function AIReviewRunCard({
                 variant="outline"
                 onClick={() => copyToFeedback(feedbackDraft)}
               >
-                Copy full draft
+                Use full draft
               </Button>
             ) : null}
           </div>
@@ -407,6 +480,16 @@ function getAIReviewStudentFeedbackDraft(value: unknown) {
   const draft = value.studentFeedbackDraft.trim();
 
   return draft.length > 0 ? normalizeFeedbackDraftForCopy(draft) : null;
+}
+
+function getAIReviewTeacherExaminerNotes(value: unknown) {
+  if (!isRecord(value) || typeof value.teacherExaminerNotes !== "string") {
+    return null;
+  }
+
+  const notes = value.teacherExaminerNotes.trim();
+
+  return notes.length > 0 ? notes : null;
 }
 
 function buildSummaryFeedbackDraft(run: AIReviewRunView) {
@@ -586,6 +669,82 @@ function getAIReviewQualityControls(run: AIReviewRunView): QualityControlView {
     teacherDecisionPolicy:
       "AI review is draft support only. Teacher feedback and review status remain the official decision.",
   };
+}
+
+function getReviewReadiness({
+  run,
+  qualityControls,
+  rubricAlignment,
+  reviewCoversLatestVersion,
+}: {
+  run: AIReviewRunView;
+  qualityControls: QualityControlView;
+  rubricAlignment: RubricAlignmentView[];
+  reviewCoversLatestVersion: boolean;
+}): ReviewReadinessView {
+  if (run.status === "failed") {
+    return {
+      label: "Rerun needed",
+      tone: "blocked",
+      detail: "The latest AI review failed.",
+      action: "Retry AI review or complete the review manually before sending feedback.",
+    };
+  }
+
+  if (run.status !== "completed") {
+    return {
+      label: "Pending",
+      tone: "caution",
+      detail: "The AI review is not complete yet.",
+      action: "Wait for completion or rerun if it is stuck.",
+    };
+  }
+
+  if (!reviewCoversLatestVersion) {
+    return {
+      label: "Rerun needed",
+      tone: "blocked",
+      detail: "This AI review does not cover the latest submitted version.",
+      action: "Rerun AI review before relying on the notes.",
+    };
+  }
+
+  if (qualityControls.readableFiles === 0 || qualityControls.extractionStatus === "limited") {
+    return {
+      label: "Review carefully",
+      tone: "caution",
+      detail: "The extraction evidence is limited.",
+      action: "Use the file preview and manual teacher judgement before copying AI notes.",
+    };
+  }
+
+  if (rubricAlignment.length === 0) {
+    return {
+      label: "Review carefully",
+      tone: "caution",
+      detail: "Structured rubric alignment is missing.",
+      action: "Use the summary only after checking the source document.",
+    };
+  }
+
+  return {
+    label: "Ready to adapt",
+    tone: "ready",
+    detail: "AI review is current, readable, and linked to rubric evidence.",
+    action: "Copy useful sections into feedback, then edit as the teacher before sending.",
+  };
+}
+
+function getReadinessTone(tone: ReviewReadinessView["tone"]) {
+  switch (tone) {
+    case "ready":
+      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+    case "blocked":
+      return "border-red-200 bg-red-50 text-red-700";
+    case "caution":
+    default:
+      return "border-amber-200 bg-amber-50 text-amber-800";
+  }
 }
 
 function getAIReviewRubricAlignment(value: unknown): RubricAlignmentView[] {
