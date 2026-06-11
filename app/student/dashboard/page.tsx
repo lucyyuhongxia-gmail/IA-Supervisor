@@ -253,28 +253,15 @@ export default async function StudentDashboardPage() {
         )}
       </section>
 
-      <details
-        className="rounded-md border bg-card"
-        open={enrollments.length === 0}
-      >
-        <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
-          {enrollments.length === 0 ? "Join a class" : "Join another class"}
-        </summary>
-        <div className="border-t p-4">
-          <div className="grid gap-3 lg:grid-cols-[240px_1fr] lg:items-end">
-            <p className="text-sm text-muted-foreground">
-              Enter the invite code provided by your teacher.
-            </p>
-            <JoinClassForm />
-          </div>
-        </div>
-      </details>
+      {enrollments.length === 0 ? (
+        <JoinClassPanel title="Join a class" isOpen />
+      ) : null}
 
       <section className="grid gap-4">
         <div>
-          <h2 className="text-lg font-semibold">My classes</h2>
+          <h2 className="text-lg font-semibold">Class progress</h2>
           <p className="text-sm text-muted-foreground">
-            Open one criterion at a time to submit or revise work.
+            Open one criterion or deliverable at a time to submit or revise work.
           </p>
         </div>
         {classViews.length > 0 ? (
@@ -434,7 +421,35 @@ export default async function StudentDashboardPage() {
           </Card>
         )}
       </section>
+
+      {enrollments.length > 0 ? (
+        <JoinClassPanel title="Join another class" />
+      ) : null}
     </main>
+  );
+}
+
+function JoinClassPanel({
+  title,
+  isOpen = false,
+}: {
+  title: string;
+  isOpen?: boolean;
+}) {
+  return (
+    <details className="rounded-md border bg-card" open={isOpen}>
+      <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
+        {title}
+      </summary>
+      <div className="border-t p-4">
+        <div className="grid gap-3 lg:grid-cols-[240px_1fr] lg:items-end">
+          <p className="text-sm text-muted-foreground">
+            Enter the invite code provided by your teacher.
+          </p>
+          <JoinClassForm />
+        </div>
+      </div>
+    </details>
   );
 }
 

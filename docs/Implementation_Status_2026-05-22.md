@@ -111,6 +111,8 @@ and backlog supplement.
   reference are grouped under a secondary class setup section.
 - Teacher student detail page prioritizes active review focus first; consistency checks and full criterion details are
   secondary collapsed sections.
+- Student dashboard prioritizes current action items and class progress; join-class controls are primary only when a
+  student has no classes and otherwise appear as a secondary collapsed section.
 - Teacher criterion review page includes a collapsed audit history for the latest workflow events.
 - Teachers can set review status:
   - `submitted`
