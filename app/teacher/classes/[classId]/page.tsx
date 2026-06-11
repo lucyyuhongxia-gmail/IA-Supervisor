@@ -117,11 +117,11 @@ export default async function TeacherClassPage({
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-8 px-6 py-10">
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-6 py-8">
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <Button asChild variant="ghost" size="sm" className="-ml-3 mb-3">
-            <Link href="/teacher/dashboard">Back to classes</Link>
+            <Link href="/teacher/dashboard">Back to dashboard</Link>
           </Button>
           <p className="text-sm font-medium text-muted-foreground">Teacher class dashboard</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-normal">{classRecord.name}</h1>
@@ -151,13 +151,22 @@ export default async function TeacherClassPage({
         <MetricPill label="Criteria" value={classRecord.subject.criteria.length} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+      <div className="grid gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Students</CardTitle>
-            <CardDescription>
-              Choose a student to review criterion files, versions, status, and feedback.
-            </CardDescription>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle className="text-lg">Students and submissions</CardTitle>
+                <CardDescription>
+                  Open a student to review files, versions, status, feedback, and reports.
+                </CardDescription>
+              </div>
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/teacher/classes/${classRecord.id}/analytics`}>
+                  Analytics
+                </Link>
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {classRecord.enrollments.length > 0 ? (
@@ -286,7 +295,14 @@ export default async function TeacherClassPage({
           </CardContent>
         </Card>
 
-        <div className="grid content-start gap-6">
+        <details className="rounded-md border bg-card">
+          <summary className="cursor-pointer px-6 py-4">
+            <span className="font-medium">Class setup</span>
+            <span className="ml-3 text-sm text-muted-foreground">
+              Submission plan, milestones, and assessment reference
+            </span>
+          </summary>
+          <div className="grid gap-4 border-t p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Submission plan</CardTitle>
@@ -357,7 +373,7 @@ export default async function TeacherClassPage({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="lg:row-span-2">
             <CardHeader>
               <CardTitle className="text-lg">Milestones</CardTitle>
               <CardDescription>Edit this class timeline and due dates.</CardDescription>
@@ -528,7 +544,8 @@ export default async function TeacherClassPage({
               </div>
             </CardContent>
           </Card>
-        </div>
+          </div>
+        </details>
       </div>
     </main>
   );
