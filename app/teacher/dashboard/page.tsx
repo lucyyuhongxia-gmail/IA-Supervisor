@@ -89,7 +89,7 @@ export default async function TeacherDashboardPage({
   ).length;
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-8 px-6 py-10">
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-6 py-8">
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-medium text-muted-foreground">Teacher workspace</p>
@@ -188,39 +188,24 @@ export default async function TeacherDashboardPage({
         </CardContent>
       </Card>
 
-      <ActivityCard
-        title="Recent activity"
-        description="Latest submissions, review updates, and milestone alerts."
-        items={activityItems}
-      />
-
-      <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
+      <section className="grid gap-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Create class</CardTitle>
-            <CardDescription>
-              New classes receive an invite code and default IA milestones.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {subjects.length > 0 ? (
-              <CreateClassForm subjects={subjects} />
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No subjects found. Run `npx prisma db seed` before creating a class.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Choose class</CardTitle>
-            <CardDescription>Open a class to view students and submission status.</CardDescription>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle className="text-lg">Classes</CardTitle>
+                <CardDescription>
+                  Open a class to view students, milestones, analytics, and submission status.
+                </CardDescription>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {classes.length} classes · {studentCount} students
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {classes.length > 0 ? (
-              <div className="grid gap-3">
+              <div className="grid gap-3 md:grid-cols-2">
                 {classes.map((classRecord) => (
                   <div
                     key={classRecord.id}
@@ -260,7 +245,31 @@ export default async function TeacherDashboardPage({
             )}
           </CardContent>
         </Card>
-      </div>
+
+        <details className="rounded-md border bg-card">
+          <summary className="cursor-pointer px-6 py-4">
+            <span className="font-medium">Create class</span>
+            <span className="ml-3 text-sm text-muted-foreground">
+              Add a class only when starting a new supervision group.
+            </span>
+          </summary>
+          <div className="border-t px-6 py-4">
+            {subjects.length > 0 ? (
+              <CreateClassForm subjects={subjects} />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No subjects found. Run `npx prisma db seed` before creating a class.
+              </p>
+            )}
+          </div>
+        </details>
+      </section>
+
+      <ActivityCard
+        title="Recent activity"
+        description="Latest submissions, review updates, and milestone alerts."
+        items={activityItems}
+      />
     </main>
   );
 }
