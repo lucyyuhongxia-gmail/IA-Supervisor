@@ -372,37 +372,49 @@ export default async function TeacherCriterionReviewPage({
             </CardContent>
           </Card>
 
-          <section id="ai-review" className="grid gap-2">
-            <div className="px-1">
+          <section id="ai-review" className="grid gap-3">
+            <div className="rounded-md border bg-card p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Step 2
               </p>
               <h2 className="mt-1 text-lg font-semibold tracking-normal">
-                Use AI notes as decision support
+                Run and review AI support
               </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Generate draft notes, check evidence grounding, then copy only useful parts into teacher feedback.
+              </p>
             </div>
-            <AIReviewHistory
-              latestVersionId={slot.latestVersionId}
-              runs={slot.aiReviewRuns.map((run) => ({
-                id: run.id,
-                submissionVersionId: run.submissionVersionId,
-                provider: run.provider,
-                modelName: run.modelName,
-                referenceKey: run.referenceKey,
-                status: run.status,
-                summary: run.summary,
-                confidence: run.confidence,
-                errorMessage: run.errorMessage,
-                createdAtLabel: run.createdAt.toLocaleString(),
-                requestedByName: run.requestedBy.name,
-                rawResponse: run.rawResponse,
-                findings: run.findings.map((finding) => ({
-                  id: finding.id,
-                  type: finding.type,
-                  text: finding.text,
-                })),
-              }))}
-            />
+
+            <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)] xl:items-start">
+              <AIReviewForm
+                classId={enrollment.class.id}
+                slotId={slot.id}
+                disabledReason={aiReviewDisabledReason}
+                aiReviewState={aiReviewState}
+              />
+              <AIReviewHistory
+                latestVersionId={slot.latestVersionId}
+                runs={slot.aiReviewRuns.map((run) => ({
+                  id: run.id,
+                  submissionVersionId: run.submissionVersionId,
+                  provider: run.provider,
+                  modelName: run.modelName,
+                  referenceKey: run.referenceKey,
+                  status: run.status,
+                  summary: run.summary,
+                  confidence: run.confidence,
+                  errorMessage: run.errorMessage,
+                  createdAtLabel: run.createdAt.toLocaleString(),
+                  requestedByName: run.requestedBy.name,
+                  rawResponse: run.rawResponse,
+                  findings: run.findings.map((finding) => ({
+                    id: finding.id,
+                    type: finding.type,
+                    text: finding.text,
+                  })),
+                }))}
+              />
+            </div>
           </section>
 
           <details className="rounded-md border bg-card">
@@ -628,19 +640,12 @@ export default async function TeacherCriterionReviewPage({
               Step 3
             </p>
             <h2 className="mt-1 text-lg font-semibold tracking-normal">
-              Decide and send
+              Decide teacher feedback
             </h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Use AI only as support. The saved status controls whether feedback is teacher-only or visible to the student.
+              Edit the final message, choose the review status, and send feedback when it should be visible to the student.
             </p>
           </div>
-
-          <AIReviewForm
-            classId={enrollment.class.id}
-            slotId={slot.id}
-            disabledReason={aiReviewDisabledReason}
-            aiReviewState={aiReviewState}
-          />
 
           {slot.status === "final_submitted" ? (
             <ReopenFinalSubmissionForm

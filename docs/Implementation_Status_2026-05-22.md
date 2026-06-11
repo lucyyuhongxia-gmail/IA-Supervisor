@@ -97,6 +97,8 @@ and backlog supplement.
 - Teacher criterion review page shows submission files, extraction preview, AI review history, and feedback controls.
 - Teacher criterion review page uses a three-step review workspace: check submitted evidence, use AI notes as decision
   support, then decide/send feedback from a sticky decision panel.
+- Teacher criterion review page keeps AI review controls inside the AI support step and reserves the sticky decision
+  panel for teacher feedback, status choice, and student-visible send decisions.
 - Teacher deliverable review page uses the same review workspace pattern: check deliverable evidence, confirm linked
   criterion scope, then decide/send feedback from a sticky decision panel.
 - Teacher review navigation is consistent across student detail, criterion review, and deliverable review pages, with
