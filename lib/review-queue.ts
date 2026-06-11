@@ -155,10 +155,72 @@ export async function getTeacherReviewQueue(teacherId: string) {
         "final_submitted",
       ].includes(item.status),
     )
-    .sort(
-      (a, b) =>
-        (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0),
-    );
+    .sort(compareReviewQueueItems);
+}
+
+function compareReviewQueueItems(a: ReviewQueueItem, b: ReviewQueueItem) {
+  const statusPriority =
+    getReviewStatusPriority(a.status) - getReviewStatusPriority(b.status);
+  if (statusPriority !== 0) {
+    return statusPriority;
+  }
+
+  const aiPriority =
+    getAIReviewPriority(a.aiReviewState) - getAIReviewPriority(b.aiReviewState);
+  if (aiPriority !== 0) {
+    return aiPriority;
+  }
+
+  const submittedAtPriority =
+    (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0);
+  if (submittedAtPriority !== 0) {
+    return submittedAtPriority;
+  }
+
+  const classPriority = a.className.localeCompare(b.className);
+  if (classPriority !== 0) {
+    return classPriority;
+  }
+
+  const studentPriority = a.studentName.localeCompare(b.studentName);
+  if (studentPriority !== 0) {
+    return studentPriority;
+  }
+
+  return a.reviewTitle.localeCompare(b.reviewTitle);
+}
+
+function getReviewStatusPriority(status: SubmissionStatus) {
+  switch (status) {
+    case "submitted":
+      return 0;
+    case "under_review":
+      return 1;
+    case "revision_needed":
+      return 2;
+    case "passed":
+      return 3;
+    case "final_submitted":
+      return 4;
+    default:
+      return 5;
+  }
+}
+
+function getAIReviewPriority(state: ReviewQueueItem["aiReviewState"]) {
+  switch (state) {
+    case "failed":
+    case "stale":
+    case "missing":
+      return 0;
+    case "pending":
+      return 1;
+    case "current":
+      return 2;
+    case "not_applicable":
+    default:
+      return 3;
+  }
 }
 
 function getAIReviewQueueState(

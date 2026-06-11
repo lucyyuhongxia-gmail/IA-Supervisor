@@ -101,6 +101,8 @@ and backlog supplement.
   criterion scope, then decide/send feedback from a sticky decision panel.
 - Teacher review navigation is consistent across student detail, criterion review, and deliverable review pages, with
   stable links for Back to student, Class dashboard, Review queue, and Next review item when available.
+- Teacher review queue is priority-sorted by review state before submission date, so newly submitted and under-review
+  items appear before revision-needed, passed, and final-submitted items.
 - Teacher criterion review page includes a collapsed audit history for the latest workflow events.
 - Teachers can set review status:
   - `submitted`

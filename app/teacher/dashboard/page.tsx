@@ -111,7 +111,7 @@ export default async function TeacherDashboardPage({
             <div>
               <CardTitle className="text-lg">Review queue</CardTitle>
               <CardDescription>
-                Cross-class submissions that need teacher attention.
+                Prioritized across classes: new submissions first, in-review items next, revisions lower.
               </CardDescription>
             </div>
             <div className="text-sm text-muted-foreground">
