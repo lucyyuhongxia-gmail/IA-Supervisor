@@ -188,6 +188,8 @@ and backlog supplement.
 - Official example benchmark is available through `npm run ai-review:benchmark-official`. It compares stored AI review
   output against official examiner comments and reports missing reviews, focus-term overlap, evidence grounding,
   Markdown feedback structure, rubric alignment, and prohibited mark/grade predictions.
+- A real DeepSeek `deepseek-v4-flash` official-example benchmark run completed on 2026-06-11 with 40/40 completed
+  reviews, 0 missing, 0 failed, and 93% average quality score in the local benchmark report.
 - Teacher can copy AI summary, concerns, suggestions, or full draft into teacher feedback.
 - AI review does not change submission status, assign final marks, or send feedback automatically.
 - Current/stale AI review state is shown to help teachers know whether the latest version has been reviewed.

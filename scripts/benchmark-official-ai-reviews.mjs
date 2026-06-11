@@ -589,8 +589,16 @@ function hasEvidenceSignal(text) {
 }
 
 function hasMarkPrediction(text) {
+  const numericFractionWithAssessmentContext =
+    /\b(mark|marks|score|scores|grade|grades|level|levels|band|bands|range|ranges|total|totals)\b.{0,40}\b\d+\s*\/\s*\d+\b/i.test(
+      text,
+    ) ||
+    /\b\d+\s*\/\s*\d+\b.{0,40}\b(mark|marks|score|scores|grade|grades|level|levels|band|bands|range|ranges|total|totals)\b/i.test(
+      text,
+    );
+
   return (
-    /\b\d+\s*\/\s*\d+\b/.test(text) ||
+    numericFractionWithAssessmentContext ||
     /\b(mark|score|grade)\s*[:=]\s*\d+/i.test(text) ||
     /\blevel\s+[1-7]\b/i.test(text) ||
     /\bgrade\s+[1-7]\b/i.test(text)

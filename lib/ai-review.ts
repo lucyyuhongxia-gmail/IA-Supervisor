@@ -6,6 +6,7 @@ import type {
   SubmissionVersion,
   UserRole,
 } from "@prisma/client";
+import { jsonrepair } from "jsonrepair";
 
 import { createAuditLog } from "@/lib/audit-log";
 import { getAssessmentReferenceForSubject } from "@/lib/assessment-reference";
@@ -505,6 +506,7 @@ function buildExaminerSystemPrompt() {
     "Return only valid JSON. Do not use Markdown outside JSON.",
     "Use only the IB Computer Science IA 2027 assessment standard and the extracted student submission text provided by the server.",
     "Do not assign final marks, predict grades, or change submission status. Teacher judgement remains final.",
+    "Do not discuss mark bands, mark ranges, grade levels, possible scores, totals, or phrases such as 'to reach 5-6'.",
     "The submission extraction metadata is authoritative. If it says Extraction status: success and extracted character count is greater than 0, you must review the extracted text and you must not claim the file is unreadable, empty, unavailable, corrupted, or could not be parsed.",
     "File names are metadata only. Do not infer criterion mismatch or readability from a file name when extracted text is available.",
     "Every concern and suggestion must be grounded in student evidence. If evidence is absent, say not evidenced and identify the missing syllabus requirement.",
@@ -591,6 +593,7 @@ function buildExaminerResponseInstructions(criterionCode: string) {
     "- If the document has no visible heading, use a nearby phrase from the extracted text as the locator.",
     "- Do not repeat the same issue in both concerns and suggestions unless the suggestion adds a different action.",
     "- Review only the selected criterion.",
+    "- Never mention mark bands, mark ranges, grade levels, possible scores, totals, or phrases such as 'to reach 5-6'.",
     "- studentFeedbackDraft must be student-facing Markdown with these headings: ## Summary, ## What is working, ## What to revise, ## Next actions.",
     "- Put every Markdown heading on its own line with a blank line before and after it. Never place two headings on the same line.",
     "- In studentFeedbackDraft, every revision bullet must include Evidence, Issue, Why it matters, and Action.",
@@ -760,7 +763,13 @@ function parseJsonObject(content: string) {
     const end = withoutFence.lastIndexOf("}");
 
     if (start >= 0 && end > start) {
-      return JSON.parse(withoutFence.slice(start, end + 1));
+      const objectText = withoutFence.slice(start, end + 1);
+
+      try {
+        return JSON.parse(objectText);
+      } catch {
+        return JSON.parse(jsonrepair(objectText));
+      }
     }
 
     throw new Error("AI review response was not valid JSON.");
