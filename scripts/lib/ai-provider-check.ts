@@ -103,15 +103,15 @@ export async function checkAIReviewProvider({
       body: JSON.stringify({
         model: config.modelName,
         temperature: 0,
-        max_tokens: 12,
+        max_tokens: 96,
         messages: [
           {
             role: "system",
-            content: "Return only the word OK.",
+            content: "Answer with exactly one short word.",
           },
           {
             role: "user",
-            content: "Provider health check.",
+            content: "Say OK.",
           },
         ],
       }),
