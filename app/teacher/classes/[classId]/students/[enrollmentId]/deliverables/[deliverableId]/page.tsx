@@ -125,6 +125,20 @@ export default async function TeacherDeliverableReviewPage({
   const fileExtractionPreviewsById = new Map(
     fileExtractionPreviews.map((preview) => [preview.fileId, preview.extraction]),
   );
+  const readableFileCount = fileExtractionPreviews.filter(
+    (preview) => preview.extraction.status === "success",
+  ).length;
+  const latestVersionLabel = latestVersion
+    ? `v${latestVersion.versionNumber}`
+    : "No version";
+  const latestSubmittedLabel = latestVersion
+    ? latestVersion.submittedAt.toLocaleString()
+    : "Not submitted";
+  const reviewedLabel = reviewedAt ? reviewedAt.toLocaleString() : "Not reviewed";
+  const linkedCriteriaLabel =
+    deliverable.criteria.length > 0
+      ? deliverable.criteria.map((link) => link.criterion.code).join(", ")
+      : "General";
   const auditLogs = await prisma.auditLog.findMany({
     where: {
       entityType: "deliverable_submission_slot",
@@ -140,63 +154,61 @@ export default async function TeacherDeliverableReviewPage({
   const classHref = `/teacher/classes/${classId}`;
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-6 py-8">
-      <section className="grid gap-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button asChild variant="ghost" size="sm" className="-ml-3">
-            <Link href={studentHref}>Back to student</Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link href={classHref}>Class dashboard</Link>
-          </Button>
-        </div>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">
-              {enrollment.class.name} · {enrollment.student.name}
+    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-4 px-6 py-6">
+      <section className="rounded-md border bg-card p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button asChild variant="ghost" size="sm" className="-ml-3">
+                <Link href={studentHref}>Back to student</Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link href={classHref}>Class dashboard</Link>
+              </Button>
+            </div>
+            <p className="mt-4 text-sm font-medium text-muted-foreground">
+              {enrollment.class.name} · {enrollment.student.name} · {enrollment.student.email}
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-normal">
+            <h1 className="mt-1 text-3xl font-semibold tracking-normal">
               {deliverable.title}
             </h1>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-              <span
-                className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(slot.status)}`}
-              >
-                {formatSubmissionStatus(slot.status)}
-              </span>
-              <span className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
-                {formatReviewMode(deliverable.reviewMode)}
-              </span>
-              {latestVersion ? (
-                <span className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
-                  Latest v{latestVersion.versionNumber}
-                </span>
-              ) : null}
-              <span className="text-muted-foreground">{enrollment.student.email}</span>
-            </div>
           </div>
           <div className="flex flex-wrap gap-2 lg:justify-end">
-            {deliverable.criteria.map((link) => (
-              <span
-                key={link.id}
-                className="rounded-md border bg-background px-2 py-1 text-xs font-medium"
-              >
-                {`Criterion ${link.criterion.code}: ${link.criterion.title}`}
-              </span>
-            ))}
+            <span
+              className={`inline-flex rounded-md border px-3 py-2 text-sm font-semibold ${getStatusTone(slot.status)}`}
+            >
+              {formatSubmissionStatus(slot.status)}
+            </span>
+            <span className="inline-flex rounded-md border px-3 py-2 text-sm text-muted-foreground">
+              {formatReviewMode(deliverable.reviewMode)}
+            </span>
           </div>
+        </div>
+
+        <div className="mt-4 grid gap-2 md:grid-cols-4">
+          <SummaryTile label="Latest version" value={latestVersionLabel} detail={latestSubmittedLabel} />
+          <SummaryTile
+            label="Readable files"
+            value={`${readableFileCount}/${files.length}`}
+            detail={artifactUrl ? "plus evidence link" : "submitted files"}
+          />
+          <SummaryTile label="Review mode" value={formatReviewMode(deliverable.reviewMode)} detail={linkedCriteriaLabel} />
+          <SummaryTile label="Teacher review" value={formatSubmissionStatus(slot.status)} detail={reviewedLabel} />
         </div>
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-start">
         <div className="grid min-w-0 gap-4">
           <Card>
             <CardHeader className="p-4 pb-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <CardTitle className="text-lg">Submitted evidence</CardTitle>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Step 1
+                  </p>
+                  <CardTitle className="mt-1 text-lg">Check submitted evidence</CardTitle>
                   <CardDescription>
-                    Review this deliverable file or evidence link.
+                    Review the deliverable file or evidence link before sending feedback.
                   </CardDescription>
                 </div>
                 <span className="inline-flex w-fit rounded-md border px-2 py-1 text-xs font-semibold text-muted-foreground">
@@ -262,7 +274,7 @@ export default async function TeacherDeliverableReviewPage({
                               <iframe
                                 src={`/api/files/${fileAsset.id}?disposition=inline#toolbar=1&navpanes=0`}
                                 title={`PDF preview for ${fileAsset.originalName}`}
-                                className="h-[640px] w-full rounded-md border bg-background"
+                                className="h-[720px] w-full rounded-md border bg-background"
                               />
                               <p className="mt-2 text-xs text-muted-foreground">
                                 If the preview is blank, open the file link above.
@@ -298,108 +310,144 @@ export default async function TeacherDeliverableReviewPage({
             </CardContent>
           </Card>
 
-          {slot.versions.length > 0 ? (
-            <details className="rounded-md border bg-card">
-              <summary className="cursor-pointer px-4 py-3 text-sm">
-                <span className="font-medium">Version history</span>
-                <span className="ml-3 text-muted-foreground">
-                  Latest v{slot.versions[0]?.versionNumber} ·{" "}
-                  {slot.versions[0]?.submittedAt.toLocaleString()} ·{" "}
-                  {slot.versions.length} total
-                </span>
-              </summary>
-              <div className="grid gap-2 border-t p-4">
-                {slot.versions.map((version) => (
-                  <div key={version.id} className="rounded-md border p-3 text-sm">
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="font-medium">Version {version.versionNumber}</p>
-                      <p className="text-muted-foreground">
-                        Submitted {version.submittedAt.toLocaleString()}
-                      </p>
-                    </div>
-                    {version.artifactUrl ? (
-                      <a
-                        href={version.artifactUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-2 block break-all text-primary underline-offset-4 hover:underline"
-                      >
-                        {version.artifactUrl}
-                      </a>
-                    ) : null}
-                    {version.fileAssets.length > 0 ? (
-                      <div className="mt-2 grid gap-1">
-                        {version.fileAssets.map((fileAsset) => (
-                          <a
-                            key={fileAsset.id}
-                            href={`/api/files/${fileAsset.id}`}
-                            className="truncate text-primary underline-offset-4 hover:underline"
-                          >
-                            {fileAsset.originalName} · {formatFileSize(fileAsset.sizeBytes)}
-                          </a>
-                        ))}
-                      </div>
-                    ) : null}
-                    {version.notes ? (
-                      <div className="mt-2 rounded-md bg-muted p-2">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          Student note
-                        </p>
-                        <p className="mt-1 whitespace-pre-wrap text-muted-foreground">
-                          {version.notes}
-                        </p>
-                      </div>
-                    ) : null}
-                    {version.teacherFeedback ? (
-                      <div className="mt-2 rounded-md bg-muted p-2">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          Teacher feedback
-                        </p>
-                        <FeedbackDisplay content={version.teacherFeedback} className="mt-2 text-muted-foreground" />
-                      </div>
-                    ) : null}
+          <Card>
+            <CardHeader className="p-4 pb-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Step 2
+              </p>
+              <CardTitle className="mt-1 text-lg">Check review scope</CardTitle>
+              <CardDescription>
+                This deliverable may map to one criterion, multiple criteria, or a final package.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-2 p-4 pt-0">
+              {deliverable.criteria.length > 0 ? (
+                deliverable.criteria.map((link) => (
+                  <div key={link.id} className="rounded-md border bg-background px-3 py-2 text-sm">
+                    <p className="font-medium">
+                      Criterion {link.criterion.code}: {link.criterion.title}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {link.criterion.maxMarks} marks
+                    </p>
                   </div>
-                ))}
-              </div>
-            </details>
-          ) : null}
+                ))
+              ) : (
+                <p className="rounded-md border p-3 text-sm text-muted-foreground">
+                  This deliverable is a general milestone deliverable and is not linked to a specific criterion.
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
-          {auditLogs.length > 0 ? (
-            <details className="rounded-md border bg-card">
-              <summary className="cursor-pointer px-4 py-3 text-sm">
-                <span className="font-medium">Audit history</span>
-                <span className="ml-3 text-muted-foreground">
-                  {auditLogs.length} recent events
-                </span>
-              </summary>
-              <div className="grid gap-2 border-t p-4">
-                {auditLogs.map((log) => (
-                  <div key={log.id} className="rounded-md border p-3 text-sm">
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="font-medium">{formatAuditAction(log.action)}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {log.actor.name} · {formatAuditActorRole(log.actor.role)}
+          <details className="rounded-md border bg-card">
+            <summary className="cursor-pointer px-4 py-3 text-sm">
+              <span className="font-medium">History</span>
+              <span className="ml-3 text-muted-foreground">
+                {slot.versions.length} versions · {auditLogs.length} recent events
+              </span>
+            </summary>
+            <div className="grid gap-4 border-t p-4">
+              {slot.versions.length > 0 ? (
+                <section className="grid gap-2">
+                  <h2 className="text-sm font-semibold">Version history</h2>
+                  {slot.versions.map((version) => (
+                    <div key={version.id} className="rounded-md border p-3 text-sm">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="font-medium">Version {version.versionNumber}</p>
+                        <p className="text-muted-foreground">
+                          Submitted {version.submittedAt.toLocaleString()}
                         </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {log.createdAt.toLocaleString()}
-                      </p>
+                      {version.artifactUrl ? (
+                        <a
+                          href={version.artifactUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 block break-all text-primary underline-offset-4 hover:underline"
+                        >
+                          {version.artifactUrl}
+                        </a>
+                      ) : null}
+                      {version.fileAssets.length > 0 ? (
+                        <div className="mt-2 grid gap-1">
+                          {version.fileAssets.map((fileAsset) => (
+                            <a
+                              key={fileAsset.id}
+                              href={`/api/files/${fileAsset.id}`}
+                              className="truncate text-primary underline-offset-4 hover:underline"
+                            >
+                              {fileAsset.originalName} · {formatFileSize(fileAsset.sizeBytes)}
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
+                      {version.notes ? (
+                        <div className="mt-2 rounded-md bg-muted p-2">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Student note
+                          </p>
+                          <p className="mt-1 whitespace-pre-wrap text-muted-foreground">
+                            {version.notes}
+                          </p>
+                        </div>
+                      ) : null}
+                      {version.teacherFeedback ? (
+                        <div className="mt-2 rounded-md bg-muted p-2">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Teacher feedback
+                          </p>
+                          <FeedbackDisplay content={version.teacherFeedback} className="mt-2 text-muted-foreground" />
+                        </div>
+                      ) : null}
                     </div>
-                    {log.fromState || log.toState ? (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {log.fromState ? formatSubmissionStatus(log.fromState as SubmissionStatus) : "No prior state"}{" "}
-                        → {log.toState ? formatSubmissionStatus(log.toState as SubmissionStatus) : "No state change"}
-                      </p>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </details>
-          ) : null}
+                  ))}
+                </section>
+              ) : null}
+
+              {auditLogs.length > 0 ? (
+                <section className="grid gap-2">
+                  <h2 className="text-sm font-semibold">Audit history</h2>
+                  {auditLogs.map((log) => (
+                    <div key={log.id} className="rounded-md border p-3 text-sm">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="font-medium">{formatAuditAction(log.action)}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {log.actor.name} · {formatAuditActorRole(log.actor.role)}
+                          </p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {log.createdAt.toLocaleString()}
+                        </p>
+                      </div>
+                      {log.fromState || log.toState ? (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {log.fromState ? formatSubmissionStatus(log.fromState as SubmissionStatus) : "No prior state"}{" "}
+                          → {log.toState ? formatSubmissionStatus(log.toState as SubmissionStatus) : "No state change"}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </section>
+              ) : null}
+            </div>
+          </details>
         </div>
 
-        <aside className="grid gap-3 lg:sticky lg:top-24">
+        <aside className="grid gap-3 lg:sticky lg:top-20">
+          <div className="rounded-md border bg-muted/30 px-3 py-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Step 3
+            </p>
+            <h2 className="mt-1 text-lg font-semibold tracking-normal">
+              Decide and send
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Save a teacher-only draft or send feedback by changing the review status.
+            </p>
+          </div>
+
           <DeliverableFeedbackForm
             classId={enrollment.class.id}
             deliverableSlotId={slot.id}
@@ -409,21 +457,37 @@ export default async function TeacherDeliverableReviewPage({
             studentHref={studentHref}
             latestVersionLabel={
               latestVersion
-                ? `Latest version: v${latestVersion.versionNumber}`
+                ? `Latest version: ${latestVersionLabel}`
                 : "No submitted version yet"
             }
             latestSubmittedLabel={
-              latestVersion
-                ? `Submitted ${latestVersion.submittedAt.toLocaleString()}`
-                : undefined
+              latestVersion ? `Submitted ${latestSubmittedLabel}` : undefined
             }
             reviewedLabel={
-              reviewedAt ? `Reviewed ${reviewedAt.toLocaleString()}` : null
+              reviewedAt ? `Reviewed ${reviewedLabel}` : null
             }
           />
         </aside>
       </div>
     </main>
+  );
+}
+
+function SummaryTile({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-md border bg-background px-3 py-2">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="mt-1 truncate text-sm font-semibold">{value}</p>
+      <p className="mt-1 truncate text-xs text-muted-foreground">{detail}</p>
+    </div>
   );
 }
 

@@ -46,6 +46,9 @@ export function DeliverableFeedbackForm({
     updateDeliverableTeacherFeedbackAction,
     {},
   );
+  const isStudentVisible = isStudentVisibleStatus(selectedStatus);
+  const saveActionLabel = isStudentVisible ? "Send feedback" : "Save teacher draft";
+  const statusHelp = getStatusHelpText(selectedStatus);
 
   useEffect(() => {
     if (state.success === "Feedback sent to the student.") {
@@ -67,7 +70,7 @@ export function DeliverableFeedbackForm({
         <div>
           <p className="text-lg font-semibold tracking-normal">Review decision</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Set this deliverable status and send feedback when needed.
+            Decide what the student sees. Draft statuses stay teacher-only.
           </p>
         </div>
         <span
@@ -108,11 +111,18 @@ export function DeliverableFeedbackForm({
             </option>
           ))}
         </select>
-        <p className="text-xs text-muted-foreground">
-          {isStudentVisibleStatus(selectedStatus)
-            ? "Saving with this status sends feedback to the student."
-            : "Saving with this status keeps feedback as a teacher draft."}
-        </p>
+        <div
+          className={`rounded-md border px-3 py-2 text-xs ${
+            isStudentVisible
+              ? "border-amber-200 bg-amber-50 text-amber-900"
+              : "border-blue-200 bg-blue-50 text-blue-900"
+          }`}
+        >
+          <p className="font-semibold">
+            {isStudentVisible ? "Student-visible send" : "Teacher-only draft"}
+          </p>
+          <p className="mt-1">{statusHelp}</p>
+        </div>
       </div>
 
       <div className="grid gap-1">
@@ -142,8 +152,19 @@ export function DeliverableFeedbackForm({
       </div>
 
       {state.success ? (
-        <div className="grid gap-2 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          <p>{state.success}</p>
+        <div className="grid gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-900">
+          <div>
+            <p className="font-semibold">
+              {state.success === "Feedback sent to the student."
+                ? "Feedback sent"
+                : "Teacher draft saved"}
+            </p>
+            <p className="mt-1 text-xs">
+              {state.success === "Feedback sent to the student."
+                ? "The student can now see this feedback on their deliverable page."
+                : "This feedback is saved for teacher review and is not visible to the student yet."}
+            </p>
+          </div>
           <div className="flex flex-wrap gap-3">
             <Link href={studentHref} className="font-medium underline-offset-4 hover:underline">
               Back to student
@@ -161,11 +182,7 @@ export function DeliverableFeedbackForm({
       ) : null}
 
       <Button type="submit" size="sm" disabled={isPending}>
-        {isPending
-          ? "Saving..."
-          : isStudentVisibleStatus(selectedStatus)
-            ? "Send feedback"
-            : "Save draft"}
+        {isPending ? "Saving..." : saveActionLabel}
       </Button>
     </form>
   );
@@ -173,6 +190,21 @@ export function DeliverableFeedbackForm({
 
 function isStudentVisibleStatus(status: SubmissionStatus) {
   return status === "revision_needed" || status === "passed";
+}
+
+function getStatusHelpText(status: SubmissionStatus) {
+  switch (status) {
+    case "revision_needed":
+      return "Sends feedback and returns this deliverable to the student for revision.";
+    case "passed":
+      return "Sends acceptance feedback for this deliverable. Use only after checking the submitted evidence yourself.";
+    case "submitted":
+      return "Keeps the item as newly submitted. Feedback is saved as an internal teacher draft.";
+    case "under_review":
+      return "Marks the item as being reviewed. Feedback is saved as an internal teacher draft.";
+    default:
+      return "This status is teacher-only for the current review workflow.";
+  }
 }
 
 function getStatusTone(status: SubmissionStatus) {
