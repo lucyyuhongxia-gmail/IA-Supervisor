@@ -22,6 +22,7 @@ type DeliverableSubmissionFormProps = {
   requiresPdf: boolean;
   isRevisionNeeded: boolean;
   latestVersionNumber?: number | null;
+  lockedMessage: string;
 };
 
 export function DeliverableSubmissionForm({
@@ -37,6 +38,7 @@ export function DeliverableSubmissionForm({
   requiresPdf,
   isRevisionNeeded,
   latestVersionNumber,
+  lockedMessage,
 }: DeliverableSubmissionFormProps) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -149,7 +151,7 @@ export function DeliverableSubmissionForm({
           </Button>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Teacher review is in progress.
+            {lockedMessage}
           </p>
         )}
       </div>

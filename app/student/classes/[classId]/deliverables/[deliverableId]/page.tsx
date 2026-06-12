@@ -115,35 +115,65 @@ export default async function StudentDeliverableSubmissionPage({
   const requiresPdf =
     !allowsLink ||
     Boolean(deliverable.fileRequirement?.toLowerCase().includes("pdf"));
+  const nextAction = getStudentNextAction({
+    status: slot.status,
+    deliverableTitle: deliverable.title,
+    hasTeacherFeedback: Boolean(teacherFeedback),
+    canEdit,
+  });
+  const latestVersionLabel = latestVersion
+    ? `v${latestVersion.versionNumber}`
+    : "No version yet";
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-6 py-10">
+    <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 px-6 py-10">
       <section>
         <Button asChild variant="ghost" size="sm" className="-ml-3 mb-3">
           <Link href={`/student/classes/${classRecord.id}`}>Back to class</Link>
         </Button>
-        <p className="text-sm font-medium text-muted-foreground">
-          {classRecord.name} · {classRecord.teacher.name}
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-normal">
-          {deliverable.title}
-        </h1>
-        <div className="mt-4 flex flex-col gap-3 rounded-md border bg-muted/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">
+              {classRecord.name} · {classRecord.teacher.name}
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-normal">
+              {deliverable.title}
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {formatReviewMode(deliverable.reviewMode)} · Latest version: {latestVersionLabel}
+            </p>
+          </div>
+          <p className={`inline-flex w-fit rounded-md border px-3 py-2 text-lg font-semibold tracking-normal ${getStudentStatusTone(slot.status)}`}>
+            {statusLabel}
+          </p>
+        </div>
+        {deliverable.fileRequirement ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Requirement: {deliverable.fileRequirement}
+          </p>
+        ) : null}
+      </section>
+
+      <section className={`rounded-md border p-4 ${nextAction.tone}`}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-medium uppercase text-muted-foreground">
-              Current status
+              Next step
             </p>
-            <p className={`mt-1 inline-flex rounded-md border px-3 py-2 text-2xl font-semibold tracking-normal ${getStudentStatusTone(slot.status)}`}>
-              {statusLabel}
-            </p>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              {getStudentStatusMessage(slot.status)}
+            <h2 className="mt-1 text-xl font-semibold tracking-normal">
+              {nextAction.title}
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+              {nextAction.description}
             </p>
           </div>
-          <div className="grid gap-2 text-sm text-muted-foreground sm:justify-items-end">
-            <p>{formatReviewMode(deliverable.reviewMode)}</p>
-            {deliverable.fileRequirement ? <p>{deliverable.fileRequirement}</p> : null}
-          </div>
+          {canEdit ? (
+            <Button asChild size="sm">
+              <a href="#submission-form">
+                {needsRevision ? "Submit revision" : "Submit deliverable"}
+              </a>
+            </Button>
+          ) : null}
         </div>
       </section>
 
@@ -184,7 +214,43 @@ export default async function StudentDeliverableSubmissionPage({
         </Card>
       ) : null}
 
-      <Card>
+      {latestFiles.length > 0 || latestArtifactUrl ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">
+              Current submission{latestVersion ? ` · v${latestVersion.versionNumber}` : ""}
+            </CardTitle>
+            <CardDescription>
+              This is the evidence currently attached to this deliverable.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2 text-sm">
+              {latestFiles.map((fileAsset) => (
+                <a
+                  key={fileAsset.id}
+                  href={`/api/files/${fileAsset.id}`}
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  {fileAsset.originalName} · {formatFileSize(fileAsset.sizeBytes)}
+                </a>
+              ))}
+              {latestArtifactUrl ? (
+                <a
+                  href={latestArtifactUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="break-all text-primary underline-offset-4 hover:underline"
+                >
+                  {latestArtifactUrl}
+                </a>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Card id="submission-form">
         <CardHeader>
           <CardTitle className="text-lg">
             {needsRevision ? `Submit revised ${deliverable.title}` : `Submit ${deliverable.title}`}
@@ -213,42 +279,10 @@ export default async function StudentDeliverableSubmissionPage({
             requiresPdf={requiresPdf}
             isRevisionNeeded={needsRevision}
             latestVersionNumber={latestVersion?.versionNumber}
+            lockedMessage={getLockedSubmissionMessage(slot.status)}
           />
         </CardContent>
       </Card>
-
-      {latestFiles.length > 0 || latestArtifactUrl ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              Latest submission{latestVersion ? ` · v${latestVersion.versionNumber}` : ""}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-2 text-sm">
-              {latestFiles.map((fileAsset) => (
-                <a
-                  key={fileAsset.id}
-                  href={`/api/files/${fileAsset.id}`}
-                  className="text-primary underline-offset-4 hover:underline"
-                >
-                  {fileAsset.originalName} · {formatFileSize(fileAsset.sizeBytes)}
-                </a>
-              ))}
-              {latestArtifactUrl ? (
-                <a
-                  href={latestArtifactUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="break-all text-primary underline-offset-4 hover:underline"
-                >
-                  {latestArtifactUrl}
-                </a>
-              ) : null}
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
 
       <Card>
         <CardHeader>
@@ -385,21 +419,74 @@ function getStudentStatusTone(status: string) {
   }
 }
 
-function getStudentStatusMessage(status: string) {
+function getStudentNextAction({
+  status,
+  deliverableTitle,
+  hasTeacherFeedback,
+  canEdit,
+}: {
+  status: string;
+  deliverableTitle: string;
+  hasTeacherFeedback: boolean;
+  canEdit: boolean;
+}) {
   switch (status) {
+    case "revision_needed":
+      return {
+        title: hasTeacherFeedback
+          ? "Revise from teacher feedback"
+          : "Wait for teacher feedback before revising",
+        description: hasTeacherFeedback
+          ? "Read the feedback first, update this deliverable, then submit a new version with a short note explaining what changed."
+          : "Your teacher marked this deliverable as needing revision, but no student-visible feedback has been sent yet.",
+        tone: "border-amber-200 bg-amber-50",
+      };
     case "passed":
     case "final_submitted":
-      return "This deliverable has been accepted by your teacher.";
-    case "revision_needed":
-      return "Your teacher has requested changes. Submit a revised version and explain what changed.";
+      return {
+        title: "This deliverable is accepted",
+        description:
+          "No action is needed for this deliverable now. Keep the accepted evidence available for the complete IA submission.",
+        tone: "border-emerald-200 bg-emerald-50",
+      };
     case "submitted":
-      return "This deliverable is submitted and waiting for teacher review.";
+      return {
+        title: "Waiting for teacher review",
+        description: canEdit
+          ? "This deliverable is submitted. You can replace it before review if you uploaded the wrong file or link."
+          : "This deliverable is submitted and waiting for teacher review.",
+        tone: "border-blue-200 bg-blue-50",
+      };
     case "under_review":
-      return "Your teacher is reviewing this deliverable. Editing is locked until feedback is returned.";
+      return {
+        title: "Teacher review in progress",
+        description:
+          "Editing is locked while your teacher reviews this deliverable. Feedback will appear here when it is sent.",
+        tone: "border-blue-200 bg-blue-50",
+      };
     case "not_started":
     case "draft":
     default:
-      return "Submit the required file or evidence link when this deliverable is ready.";
+      return {
+        title: `Submit ${deliverableTitle}`,
+        description:
+          "Submit the required file or evidence link when this deliverable is ready for teacher review. Add a short note if there is anything specific your teacher should check.",
+        tone: "border-slate-200 bg-card",
+      };
+  }
+}
+
+function getLockedSubmissionMessage(status: string) {
+  switch (status) {
+    case "passed":
+    case "final_submitted":
+      return "This deliverable has been accepted.";
+    case "under_review":
+      return "Teacher review is in progress.";
+    case "locked":
+      return "This deliverable is locked.";
+    default:
+      return "Submission is not available right now.";
   }
 }
 

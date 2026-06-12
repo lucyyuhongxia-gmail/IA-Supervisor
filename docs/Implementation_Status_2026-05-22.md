@@ -90,6 +90,8 @@ and backlog supplement.
   output, or audit logs.
 - Student criterion pages now prioritize a clear next-step panel, current files, student-visible teacher feedback, and
   revised submission actions before lower-priority version history.
+- Student deliverable pages follow the same next-step-first layout as criterion pages, with current evidence, revision
+  actions, linked criteria, and version history presented in a consistent order.
 
 ### Teacher Review Workflow
 
