@@ -125,6 +125,8 @@ and backlog supplement.
   secondary collapsed sections.
 - Teacher student detail page uses the same review-focus model as dashboard/class pages, with criteria and deliverables
   in one active review list plus revision and AI update metrics.
+- Teacher student detail page separates teacher-action items from student revision follow-up, highlights AI review update
+  needs, and collapses full criterion/deliverable status overviews behind compact summaries.
 - Student dashboard prioritizes current action items and class progress; join-class controls are primary only when a
   student has no classes and otherwise appear as a secondary collapsed section.
 - Student class page prioritizes the student's active submission work in one progress workspace; criteria documents,
@@ -184,6 +186,14 @@ and backlog supplement.
   - AI review failure
 - Security checklist and residual production risks are tracked in `docs/Security_Checklist.md`.
 - Audit entries store actor, role, entity, action, from/to state, reason, metadata, and timestamp.
+
+### Abuse Protection
+
+- Credentials login and registration have basic per-email in-memory rate limits.
+- Student invite-code join has a basic per-student in-memory rate limit.
+- Teacher AI review has basic per-teacher and per-submission-slot in-memory rate limits to reduce accidental repeated
+  provider calls.
+- These are single-instance MVP controls; distributed rate limiting remains deferred for production scale.
 
 ### AI Review
 

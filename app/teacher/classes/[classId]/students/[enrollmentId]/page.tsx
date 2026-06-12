@@ -164,10 +164,34 @@ export default async function TeacherStudentPage({
         href: `/teacher/classes/${enrollment.class.id}/students/${enrollment.id}/deliverables/${slot.deliverable.id}`,
       })),
   ].sort(compareReviewFocusItems);
+  const teacherActionItems = reviewFocusItems.filter((item) =>
+    isTeacherActionStatus(item.status),
+  );
+  const revisionFollowupItems = reviewFocusItems.filter(
+    (item) => item.status === "revision_needed",
+  );
   const reviewFocus = getStudentReviewFocus({
     criterionSlots: sortedSlots,
     deliverableSlots: sortedDeliverableSlots,
   });
+  const acceptedCriteria = sortedSlots.filter((slot) =>
+    ["passed", "final_submitted"].includes(slot.status),
+  ).length;
+  const awaitingCriteria = sortedSlots.filter((slot) =>
+    isTeacherActionStatus(slot.status),
+  ).length;
+  const revisionCriteria = sortedSlots.filter(
+    (slot) => slot.status === "revision_needed",
+  ).length;
+  const acceptedDeliverables = sortedDeliverableSlots.filter((slot) =>
+    ["passed", "final_submitted"].includes(slot.status),
+  ).length;
+  const awaitingDeliverables = sortedDeliverableSlots.filter((slot) =>
+    isTeacherActionStatus(slot.status),
+  ).length;
+  const revisionDeliverables = sortedDeliverableSlots.filter(
+    (slot) => slot.status === "revision_needed",
+  ).length;
   const latestConsistencyRun = await prisma.consistencyCheck.findFirst({
     where: {
       classId,
@@ -259,62 +283,62 @@ export default async function TeacherStudentPage({
             />
           </div>
 
-          {reviewFocusItems.length > 0 ? (
+          {reviewFocus.needsAIReview > 0 ? (
+            <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">
+              {reviewFocus.needsAIReview} criterion review item
+              {reviewFocus.needsAIReview === 1 ? "" : "s"} need an AI review update before relying on AI notes.
+            </p>
+          ) : null}
+
+          {teacherActionItems.length > 0 ? (
             <div className="grid gap-2">
-              {reviewFocusItems.map((item) => (
-                <Link
+              <p className="text-xs font-medium uppercase text-muted-foreground">
+                Ready for teacher review
+              </p>
+              {teacherActionItems.map((item) => (
+                <ReviewFocusItemLink
                   key={`${item.type}-${item.id}`}
-                  href={item.href}
-                  className="grid gap-3 rounded-md border p-3 text-sm transition-colors hover:bg-muted/60 md:grid-cols-[1fr_auto] md:items-center"
-                >
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700">
-                        {item.type === "criterion" ? "Criterion document" : "Deliverable"}
-                      </p>
-                      <p
-                        className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(item.status)}`}
-                      >
-                        {formatReviewFocusStatus(item.status)}
-                      </p>
-                      {item.type === "criterion" ? (
-                        <p
-                          className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getAIReviewTone(item.aiReviewState)}`}
-                        >
-                          {formatAIReviewState(item.aiReviewState)}
-                        </p>
-                      ) : null}
-                    </div>
-                    <p className="mt-2 font-medium">{item.title}</p>
-                    <p className="mt-1 text-muted-foreground">
-                      {item.scope} · {item.versionNumber ? `v${item.versionNumber}` : "No version"} ·{" "}
-                      {item.submittedAt
-                        ? item.submittedAt.toLocaleDateString()
-                        : "No submission timestamp"}
-                    </p>
-                  </div>
-                  <span className="w-fit rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground">
-                    {item.type === "criterion" ? "Review criterion" : "Review deliverable"}
-                  </span>
-                </Link>
+                  item={item}
+                />
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              No active review items for this student.
+            <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+              No submitted or under-review items need teacher action right now.
             </p>
           )}
+
+          {revisionFollowupItems.length > 0 ? (
+            <details className="mt-3 rounded-md border bg-background">
+              <summary className="cursor-pointer px-3 py-2 text-sm">
+                <span className="font-medium">Student revision follow-up</span>
+                <span className="ml-2 text-muted-foreground">
+                  {revisionFollowupItems.length} item
+                  {revisionFollowupItems.length === 1 ? "" : "s"} waiting on student changes
+                </span>
+              </summary>
+              <div className="grid gap-2 border-t p-3">
+                {revisionFollowupItems.map((item) => (
+                  <ReviewFocusItemLink
+                    key={`${item.type}-${item.id}`}
+                    item={item}
+                  />
+                ))}
+              </div>
+            </details>
+          ) : null}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Submission status</CardTitle>
-          <CardDescription>
-            Criterion-level progress for this student.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <details className="rounded-md border bg-card">
+        <summary className="cursor-pointer px-6 py-4">
+          <span className="font-medium">Criterion status overview</span>
+          <span className="ml-3 text-sm text-muted-foreground">
+            {acceptedCriteria} accepted · {awaitingCriteria} awaiting review ·{" "}
+            {revisionCriteria} needs revision · {sortedSlots.length} total
+          </span>
+        </summary>
+        <div className="border-t p-4">
           <div className="grid gap-2 sm:grid-cols-5">
             {enrollment.class.subject.criteria.map((criterion) => {
               const slot = sortedSlots.find(
@@ -342,18 +366,19 @@ export default async function TeacherStudentPage({
               );
             })}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </details>
 
       {sortedDeliverableSlots.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Submission plan</CardTitle>
-            <CardDescription>
-              Deliverable-level files expected for this student.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <details className="rounded-md border bg-card">
+          <summary className="cursor-pointer px-6 py-4">
+            <span className="font-medium">Deliverable plan</span>
+            <span className="ml-3 text-sm text-muted-foreground">
+              {acceptedDeliverables} accepted · {awaitingDeliverables} awaiting review ·{" "}
+              {revisionDeliverables} needs revision · {sortedDeliverableSlots.length} total
+            </span>
+          </summary>
+          <div className="border-t p-4">
             <div className="grid gap-2 sm:grid-cols-2">
               {sortedDeliverableSlots.map((slot) => {
                 const latestVersion = slot.latestVersion;
@@ -425,8 +450,8 @@ export default async function TeacherStudentPage({
                 );
               })}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </details>
       ) : null}
 
       <details className="rounded-md border bg-card">
@@ -627,6 +652,71 @@ export default async function TeacherStudentPage({
         </div>
       </details>
     </main>
+  );
+}
+
+function ReviewFocusItemLink({
+  item,
+}: {
+  item: {
+    id: string;
+    type: "criterion" | "deliverable";
+    title: string;
+    scope: string;
+    status: SubmissionStatus;
+    versionNumber: number | null;
+    submittedAt: Date | null;
+    aiReviewState: string;
+    href: string;
+  };
+}) {
+  const actionLabel = isTeacherActionStatus(item.status)
+    ? item.type === "criterion"
+      ? "Review criterion"
+      : "Review deliverable"
+    : "View status";
+
+  return (
+    <Link
+      href={item.href}
+      className="grid gap-3 rounded-md border p-3 text-sm transition-colors hover:bg-muted/60 md:grid-cols-[1fr_auto] md:items-center"
+    >
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700">
+            {item.type === "criterion" ? "Criterion document" : "Deliverable"}
+          </p>
+          <p
+            className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(item.status)}`}
+          >
+            {formatReviewFocusStatus(item.status)}
+          </p>
+          {item.type === "criterion" ? (
+            <p
+              className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getAIReviewTone(item.aiReviewState)}`}
+            >
+              {formatAIReviewState(item.aiReviewState)}
+            </p>
+          ) : null}
+        </div>
+        <p className="mt-2 font-medium">{item.title}</p>
+        <p className="mt-1 text-muted-foreground">
+          {item.scope} · {item.versionNumber ? `v${item.versionNumber}` : "No version"} ·{" "}
+          {item.submittedAt
+            ? item.submittedAt.toLocaleDateString()
+            : "No submission timestamp"}
+        </p>
+      </div>
+      <span
+        className={`w-fit rounded-md px-3 py-2 text-xs font-semibold ${
+          isTeacherActionStatus(item.status)
+            ? "bg-primary text-primary-foreground"
+            : "border bg-background text-muted-foreground"
+        }`}
+      >
+        {actionLabel}
+      </span>
+    </Link>
   );
 }
 

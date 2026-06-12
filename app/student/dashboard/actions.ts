@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createAuditLog } from "@/lib/audit-log";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit, formatRateLimitMessage } from "@/lib/rate-limit";
 import { ensureEnrollmentSubmissionSlots } from "@/lib/submissions";
 
 export type JoinClassState = {
@@ -41,6 +42,16 @@ export async function joinClassAction(
 
   if (!parsed.success) {
     return { error: parsed.error.errors[0]?.message ?? "Check the invite code." };
+  }
+
+  const joinLimit = checkRateLimit({
+    key: `student:join-class:${user.id}`,
+    limit: 10,
+    windowMs: 15 * 60 * 1000,
+  });
+
+  if (!joinLimit.ok) {
+    return { error: formatRateLimitMessage(joinLimit.retryAfterSeconds) };
   }
 
   const classRecord = await prisma.class.findUnique({

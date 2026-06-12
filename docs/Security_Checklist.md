@@ -31,11 +31,13 @@ authorization and audit controls currently implemented before adding more produc
 
 - Student submission updates verify the slot belongs to the current student and class.
 - Student final submission verifies the enrollment belongs to the current student.
+- Student invite-code join is protected by a basic per-student in-memory rate limit.
 - Teacher feedback updates verify the slot belongs to a class owned by the current teacher.
 - Teacher reopen final submission verifies the slot belongs to a class owned by the current teacher.
 - Teacher milestone create/update/delete verifies class ownership.
 - Teacher AI review, semantic extraction, consistency review, marking assistant, and final mark actions verify class
   ownership before running.
+- Teacher AI review is protected by basic per-teacher and per-submission-slot in-memory rate limits.
 - Admin assessment reference updates require an admin user.
 
 ## High-Risk Workflow Audit
@@ -96,9 +98,18 @@ The following actions are recorded in `AuditLog`:
   local demo account credentials in README, seed, reset scripts, and login placeholder text.
 - `npm run demo:reset` refuses to run unless `DATABASE_URL` points to `localhost`, `127.0.0.1`, or `::1`.
 
+## Abuse Protection
+
+- Credentials login is protected by a basic per-email in-memory rate limit.
+- Account registration is protected by a basic per-email in-memory rate limit.
+- Student invite-code join is protected by a basic per-student in-memory rate limit.
+- AI review runs are protected by basic per-teacher and per-slot in-memory rate limits.
+- These controls are sufficient for a single-instance MVP but should be replaced or backed by Redis/database-backed
+  distributed rate limiting before multi-instance production deployment.
+
 ## Remaining Risks / Deferred Production Work
 
-- No request rate limiting yet for login, registration, invite-code join, AI review, or export routes.
+- No distributed rate limiting yet, and export routes do not have a dedicated rate limit.
 - No email verification or password reset workflow yet.
 - No account lockout or suspicious login detection.
 - Uploaded files are stored on local disk, not object storage with malware scanning.

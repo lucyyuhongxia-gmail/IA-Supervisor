@@ -13,6 +13,7 @@ import { extractFileText } from "@/lib/file-extraction";
 import { runMarkingAssistantForSlot } from "@/lib/marking-assistant";
 import { runAIReviewForSlot } from "@/lib/ai-review";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit, formatRateLimitMessage } from "@/lib/rate-limit";
 import {
   confirmSemanticExtraction,
   generateSemanticExtractionForSlot,
@@ -824,6 +825,26 @@ export async function runAIReviewAction(
     return {
       error: parsed.error.errors[0]?.message ?? "Check the AI review request.",
     };
+  }
+
+  const teacherLimit = checkRateLimit({
+    key: `teacher:ai-review:${user.id}`,
+    limit: 30,
+    windowMs: 60 * 60 * 1000,
+  });
+
+  if (!teacherLimit.ok) {
+    return { error: formatRateLimitMessage(teacherLimit.retryAfterSeconds) };
+  }
+
+  const slotLimit = checkRateLimit({
+    key: `teacher:ai-review-slot:${parsed.data.slotId}`,
+    limit: 5,
+    windowMs: 15 * 60 * 1000,
+  });
+
+  if (!slotLimit.ok) {
+    return { error: formatRateLimitMessage(slotLimit.retryAfterSeconds) };
   }
 
   const slot = await prisma.submissionSlot.findFirst({

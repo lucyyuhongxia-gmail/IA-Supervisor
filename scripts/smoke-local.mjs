@@ -58,7 +58,15 @@ async function main() {
 function startServer() {
   console.log(`Starting local Next server on ${baseUrl}`);
 
-  const child = spawn("npm", ["run", "dev", "--", "--port", String(defaultPort)], {
+  const child = spawn("npm", [
+    "run",
+    "dev",
+    "--",
+    "--hostname",
+    "127.0.0.1",
+    "--port",
+    String(defaultPort),
+  ], {
     env: {
       ...process.env,
       NEXTAUTH_URL: baseUrl,

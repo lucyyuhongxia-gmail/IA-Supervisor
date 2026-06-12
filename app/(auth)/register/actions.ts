@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { createAuditLog } from "@/lib/audit-log";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit, clearRateLimit, formatRateLimitMessage } from "@/lib/rate-limit";
 
 export type RegisterState = {
   error?: string;
@@ -47,6 +48,16 @@ export async function registerAction(formData: FormData): Promise<RegisterState>
 
   const data = parsed.data;
   const email = data.email.toLowerCase();
+  const rateLimitKey = `auth:register:${email}`;
+  const registerLimit = checkRateLimit({
+    key: rateLimitKey,
+    limit: 5,
+    windowMs: 15 * 60 * 1000,
+  });
+
+  if (!registerLimit.ok) {
+    return { error: formatRateLimitMessage(registerLimit.retryAfterSeconds) };
+  }
 
   const existingUser = await prisma.user.findUnique({
     where: { email },
@@ -187,6 +198,8 @@ export async function registerAction(formData: FormData): Promise<RegisterState>
 
     return { error: "Could not create the account. Try again." };
   }
+
+  clearRateLimit(rateLimitKey);
 
   return {
     success: true,
