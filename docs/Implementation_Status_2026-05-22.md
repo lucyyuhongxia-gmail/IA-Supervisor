@@ -119,6 +119,8 @@ and backlog supplement.
   awaiting review, revision-needed count, AI review update count, status badges, and attention notes.
 - Teacher student detail page prioritizes active review focus first; consistency checks and full criterion details are
   secondary collapsed sections.
+- Teacher student detail page uses the same review-focus model as dashboard/class pages, with criteria and deliverables
+  in one active review list plus revision and AI update metrics.
 - Student dashboard prioritizes current action items and class progress; join-class controls are primary only when a
   student has no classes and otherwise appear as a secondary collapsed section.
 - Student class page prioritizes the student's active submission work in one progress workspace; criteria documents,

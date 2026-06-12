@@ -92,6 +92,14 @@ export default async function TeacherStudentPage({
       submissionSlots: {
         include: {
           criterion: true,
+          aiReviewRuns: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: {
+              status: true,
+              submissionVersionId: true,
+            },
+          },
           latestVersion: {
             include: {
               fileAssets: {
@@ -125,9 +133,41 @@ export default async function TeacherStudentPage({
   const sortedDeliverableSlots = [...enrollment.deliverableSlots].sort(
     (a, b) => a.deliverable.sortOrder - b.deliverable.sortOrder,
   );
-  const reviewFocusSlots = sortedSlots.filter((slot) =>
-    ["submitted", "under_review", "revision_needed"].includes(slot.status),
-  );
+  const reviewFocusItems = [
+    ...sortedSlots
+      .filter((slot) => ["submitted", "under_review", "revision_needed"].includes(slot.status))
+      .map((slot) => ({
+        id: slot.id,
+        type: "criterion" as const,
+        title: `Criterion ${slot.criterion.code}: ${slot.criterion.title}`,
+        scope: `${slot.criterion.maxMarks} marks`,
+        status: slot.status,
+        versionNumber: slot.latestVersion?.versionNumber ?? null,
+        submittedAt: slot.latestVersion?.submittedAt ?? slot.submittedAt,
+        aiReviewState: getAIReviewState(slot.latestVersionId, slot.aiReviewRuns[0]),
+        href: `/teacher/classes/${enrollment.class.id}/students/${enrollment.id}/criteria/${slot.criterion.id}`,
+      })),
+    ...sortedDeliverableSlots
+      .filter((slot) => ["submitted", "under_review", "revision_needed"].includes(slot.status))
+      .map((slot) => ({
+        id: slot.id,
+        type: "deliverable" as const,
+        title: slot.deliverable.title,
+        scope:
+          slot.deliverable.criteria
+            .map((link) => `Criterion ${link.criterion.code}`)
+            .join(", ") || "General deliverable",
+        status: slot.status,
+        versionNumber: slot.latestVersion?.versionNumber ?? null,
+        submittedAt: slot.latestVersion?.submittedAt ?? slot.submittedAt,
+        aiReviewState: "not_applicable",
+        href: `/teacher/classes/${enrollment.class.id}/students/${enrollment.id}/deliverables/${slot.deliverable.id}`,
+      })),
+  ].sort(compareReviewFocusItems);
+  const reviewFocus = getStudentReviewFocus({
+    criterionSlots: sortedSlots,
+    deliverableSlots: sortedDeliverableSlots,
+  });
   const latestConsistencyRun = await prisma.consistencyCheck.findFirst({
     where: {
       classId,
@@ -196,29 +236,66 @@ export default async function TeacherStudentPage({
           </div>
         </CardHeader>
         <CardContent>
-          {reviewFocusSlots.length > 0 ? (
-            <div className="grid gap-2 sm:grid-cols-3">
-              {reviewFocusSlots.map((slot) => (
+          <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+            <ReviewFocusTile
+              label="Criteria to review"
+              value={reviewFocus.criteriaAwaiting}
+              tone={reviewFocus.criteriaAwaiting > 0 ? "info" : "muted"}
+            />
+            <ReviewFocusTile
+              label="Deliverables to review"
+              value={reviewFocus.deliverablesAwaiting}
+              tone={reviewFocus.deliverablesAwaiting > 0 ? "info" : "muted"}
+            />
+            <ReviewFocusTile
+              label="Needs revision"
+              value={reviewFocus.needsRevision}
+              tone={reviewFocus.needsRevision > 0 ? "warning" : "muted"}
+            />
+            <ReviewFocusTile
+              label="AI needs update"
+              value={reviewFocus.needsAIReview}
+              tone={reviewFocus.needsAIReview > 0 ? "warning" : "muted"}
+            />
+          </div>
+
+          {reviewFocusItems.length > 0 ? (
+            <div className="grid gap-2">
+              {reviewFocusItems.map((item) => (
                 <Link
-                  key={slot.id}
-                  href={`/teacher/classes/${enrollment.class.id}/students/${enrollment.id}/criteria/${slot.criterion.id}`}
-                  className="rounded-md border p-3 text-sm transition-colors hover:bg-muted/60"
+                  key={`${item.type}-${item.id}`}
+                  href={item.href}
+                  className="grid gap-3 rounded-md border p-3 text-sm transition-colors hover:bg-muted/60 md:grid-cols-[1fr_auto] md:items-center"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium">Criterion {slot.criterion.code}</p>
-                      <p className="mt-1 text-muted-foreground">
-                        {slot.latestVersion
-                          ? `v${slot.latestVersion.versionNumber} · ${slot.latestVersion.submittedAt.toLocaleDateString()}`
-                          : "No submitted version"}
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700">
+                        {item.type === "criterion" ? "Criterion document" : "Deliverable"}
                       </p>
+                      <p
+                        className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(item.status)}`}
+                      >
+                        {formatReviewFocusStatus(item.status)}
+                      </p>
+                      {item.type === "criterion" ? (
+                        <p
+                          className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getAIReviewTone(item.aiReviewState)}`}
+                        >
+                          {formatAIReviewState(item.aiReviewState)}
+                        </p>
+                      ) : null}
                     </div>
-                    <p
-                      className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(slot.status)}`}
-                    >
-                      {formatReviewFocusStatus(slot.status)}
+                    <p className="mt-2 font-medium">{item.title}</p>
+                    <p className="mt-1 text-muted-foreground">
+                      {item.scope} · {item.versionNumber ? `v${item.versionNumber}` : "No version"} ·{" "}
+                      {item.submittedAt
+                        ? item.submittedAt.toLocaleDateString()
+                        : "No submission timestamp"}
                     </p>
                   </div>
+                  <span className="w-fit rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground">
+                    {item.type === "criterion" ? "Review criterion" : "Review deliverable"}
+                  </span>
                 </Link>
               ))}
             </div>
@@ -247,11 +324,20 @@ export default async function TeacherStudentPage({
               return (
                 <div key={criterion.id} className="rounded-md border p-3 text-sm">
                   <p className="font-medium">Criterion {criterion.code}</p>
-                  <p
-                    className={`mt-2 inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(slot?.status ?? "not_started")}`}
-                  >
-                    {slot ? formatSubmissionStatus(slot.status) : "Not Started"}
-                  </p>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    <p
+                      className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(slot?.status ?? "not_started")}`}
+                    >
+                      {slot ? formatSubmissionStatus(slot.status) : "Not Started"}
+                    </p>
+                    {slot ? (
+                      <p
+                        className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getAIReviewTone(getAIReviewState(slot.latestVersionId, slot.aiReviewRuns[0]))}`}
+                      >
+                        {formatAIReviewState(getAIReviewState(slot.latestVersionId, slot.aiReviewRuns[0]))}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
               );
             })}
@@ -294,6 +380,11 @@ export default async function TeacherStudentPage({
                         {formatSubmissionStatus(slot.status)}
                       </p>
                     </div>
+                    {["submitted", "under_review"].includes(slot.status) ? (
+                      <p className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-900">
+                        Waiting for teacher review. Confirm linked criterion scope before sending feedback.
+                      </p>
+                    ) : null}
                     {latestVersion ? (
                       <p className="mt-2 text-xs text-muted-foreground">
                         Latest v{latestVersion.versionNumber} ·{" "}
@@ -537,6 +628,190 @@ export default async function TeacherStudentPage({
       </details>
     </main>
   );
+}
+
+function ReviewFocusTile({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "info" | "warning" | "muted";
+}) {
+  return (
+    <div className={`rounded-md border px-3 py-2 ${getReviewFocusTone(tone)}`}>
+      <p className="text-lg font-semibold">{value}</p>
+      <p className="text-xs">{label}</p>
+    </div>
+  );
+}
+
+function getStudentReviewFocus({
+  criterionSlots,
+  deliverableSlots,
+}: {
+  criterionSlots: Array<{
+    status: SubmissionStatus;
+    latestVersionId: string | null;
+    aiReviewRuns: Array<{
+      status: string;
+      submissionVersionId: string | null;
+    }>;
+  }>;
+  deliverableSlots: Array<{ status: SubmissionStatus }>;
+}) {
+  const criteriaAwaiting = criterionSlots.filter((slot) =>
+    isTeacherActionStatus(slot.status),
+  ).length;
+  const deliverablesAwaiting = deliverableSlots.filter((slot) =>
+    isTeacherActionStatus(slot.status),
+  ).length;
+  const needsRevision = [...criterionSlots, ...deliverableSlots].filter(
+    (slot) => slot.status === "revision_needed",
+  ).length;
+  const needsAIReview = criterionSlots.filter((slot) => {
+    if (!isTeacherActionStatus(slot.status)) {
+      return false;
+    }
+
+    return ["missing", "stale", "failed"].includes(
+      getAIReviewState(slot.latestVersionId, slot.aiReviewRuns[0]),
+    );
+  }).length;
+
+  return {
+    criteriaAwaiting,
+    deliverablesAwaiting,
+    needsRevision,
+    needsAIReview,
+  };
+}
+
+function compareReviewFocusItems(
+  a: {
+    status: SubmissionStatus;
+    type: "criterion" | "deliverable";
+    submittedAt: Date | null;
+    title: string;
+  },
+  b: {
+    status: SubmissionStatus;
+    type: "criterion" | "deliverable";
+    submittedAt: Date | null;
+    title: string;
+  },
+) {
+  const statusPriority =
+    getReviewStatusPriority(a.status) - getReviewStatusPriority(b.status);
+  if (statusPriority !== 0) {
+    return statusPriority;
+  }
+
+  const typePriority = a.type.localeCompare(b.type);
+  if (typePriority !== 0) {
+    return typePriority;
+  }
+
+  const submittedAtPriority =
+    (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0);
+  if (submittedAtPriority !== 0) {
+    return submittedAtPriority;
+  }
+
+  return a.title.localeCompare(b.title);
+}
+
+function getReviewStatusPriority(status: SubmissionStatus) {
+  switch (status) {
+    case "submitted":
+      return 0;
+    case "under_review":
+      return 1;
+    case "revision_needed":
+      return 2;
+    default:
+      return 3;
+  }
+}
+
+function isTeacherActionStatus(status: SubmissionStatus) {
+  return status === "submitted" || status === "under_review";
+}
+
+function getReviewFocusTone(tone: "info" | "warning" | "muted") {
+  switch (tone) {
+    case "info":
+      return "border-blue-200 bg-blue-50 text-blue-900";
+    case "warning":
+      return "border-amber-200 bg-amber-50 text-amber-900";
+    case "muted":
+    default:
+      return "bg-background text-muted-foreground";
+  }
+}
+
+function getAIReviewState(
+  latestVersionId: string | null,
+  latestAIReviewRun:
+    | {
+        status: string;
+        submissionVersionId: string | null;
+      }
+    | undefined,
+) {
+  if (!latestVersionId || !latestAIReviewRun) {
+    return "missing";
+  }
+
+  if (latestAIReviewRun.submissionVersionId !== latestVersionId) {
+    return "stale";
+  }
+
+  if (latestAIReviewRun.status === "completed") {
+    return "current";
+  }
+
+  if (latestAIReviewRun.status === "failed") {
+    return "failed";
+  }
+
+  return "pending";
+}
+
+function formatAIReviewState(state: string) {
+  switch (state) {
+    case "current":
+      return "AI current";
+    case "stale":
+      return "AI stale";
+    case "failed":
+      return "AI failed";
+    case "pending":
+      return "AI pending";
+    case "not_applicable":
+      return "Manual review";
+    case "missing":
+    default:
+      return "No AI";
+  }
+}
+
+function getAIReviewTone(state: string) {
+  switch (state) {
+    case "current":
+      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+    case "pending":
+      return "border-blue-200 bg-blue-50 text-blue-800";
+    case "stale":
+    case "failed":
+      return "border-amber-200 bg-amber-50 text-amber-800";
+    case "not_applicable":
+      return "border-stone-200 bg-stone-50 text-stone-700";
+    case "missing":
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-600";
+  }
 }
 
 function getStatusTone(status: SubmissionStatus) {
