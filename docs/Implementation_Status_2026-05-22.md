@@ -109,6 +109,8 @@ and backlog supplement.
   items appear before revision-needed, passed, and final-submitted items.
 - Teacher dashboard's default active queue only shows teacher-action items (`submitted` and `under_review`); student
   revision items and completed items are available through separate filters.
+- Teacher dashboard review queue shows per-filter counts and review-target-first cards with item type, status, AI review
+  state, student/class context, version, submitted time, scope, and attention notes.
 - Teacher dashboard visual hierarchy prioritizes review work first, then class management; class creation and recent
   activity are secondary collapsed sections.
 - Teacher class dashboard prioritizes the student/submission list first; submission plan, milestones, and assessment

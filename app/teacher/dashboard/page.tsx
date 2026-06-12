@@ -74,6 +74,14 @@ export default async function TeacherDashboardPage({
   const filteredReviewQueueItems = reviewQueueItems.filter((item) =>
     matchesReviewQueueFilter(item.status, activeQueueFilter),
   );
+  const reviewQueueFilterCounts = Object.fromEntries(
+    reviewQueueFilters.map((filter) => [
+      filter.value,
+      reviewQueueItems.filter((item) =>
+        matchesReviewQueueFilter(item.status, filter.value),
+      ).length,
+    ]),
+  ) as Record<(typeof reviewQueueFilters)[number]["value"], number>;
   const awaitingReviewCount = reviewQueueItems.filter(
     (item) => item.status === "submitted" || item.status === "under_review",
   ).length;
@@ -130,7 +138,7 @@ export default async function TeacherDashboardPage({
                 variant={activeQueueFilter === filter.value ? "default" : "outline"}
               >
                 <Link href={filter.value === "active" ? "/teacher/dashboard" : `/teacher/dashboard?queue=${filter.value}`}>
-                  {filter.label}
+                  {filter.label} ({reviewQueueFilterCounts[filter.value]})
                 </Link>
               </Button>
             ))}
@@ -140,13 +148,12 @@ export default async function TeacherDashboardPage({
               {filteredReviewQueueItems.map((item) => (
                 <div
                   key={`${item.itemType}-${item.id}`}
-                  className="grid gap-3 rounded-md border p-4 md:grid-cols-[1fr_auto]"
+                  className="grid gap-4 rounded-md border p-4 transition-colors hover:bg-muted/30 lg:grid-cols-[1fr_auto] lg:items-center"
                 >
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium">{item.studentName}</p>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
                       <p className="inline-flex rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700">
-                        {item.itemType === "criterion" ? "Criterion" : "Deliverable"}
+                        {formatQueueItemType(item.itemType)}
                       </p>
                       <p
                         className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(item.status)}`}
@@ -159,22 +166,34 @@ export default async function TeacherDashboardPage({
                         {formatAIReviewState(item.aiReviewState)}
                       </p>
                     </div>
+                    <h2 className="mt-2 truncate font-medium">
+                      {item.reviewTitle}
+                    </h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {item.className} · {item.examSession} · {item.reviewTitle}
+                      {item.studentName} · {item.studentEmail}
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {item.studentEmail} · {item.reviewContext} · {item.reviewDetail} ·{" "}
-                      {item.versionNumber ? `v${item.versionNumber} · ` : ""}
-                      {item.submittedAt
-                        ? item.submittedAt.toLocaleString()
-                        : "No submission timestamp"}
+                      {item.className} · {item.examSession}
                     </p>
+                    <div className="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-3">
+                      <QueueDetail label="Version" value={item.versionNumber ? `v${item.versionNumber}` : "No version"} />
+                      <QueueDetail
+                        label="Submitted"
+                        value={item.submittedAt ? item.submittedAt.toLocaleString() : "No timestamp"}
+                      />
+                      <QueueDetail label="Scope" value={item.reviewDetail} />
+                    </div>
+                    {getQueueAttentionNote(item) ? (
+                      <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                        {getQueueAttentionNote(item)}
+                      </p>
+                    ) : null}
                   </div>
-                  <Button asChild size="sm">
+                  <Button asChild size="sm" variant={item.status === "revision_needed" ? "outline" : "default"}>
                     <Link
                       href={item.href}
                     >
-                      Open review
+                      {getQueueActionLabel(item)}
                     </Link>
                   </Button>
                 </div>
@@ -324,6 +343,15 @@ function ActivityCard({
   );
 }
 
+function QueueDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border bg-background px-3 py-2">
+      <p className="font-medium text-muted-foreground">{label}</p>
+      <p className="mt-1 truncate text-foreground">{value}</p>
+    </div>
+  );
+}
+
 function getActivityTone(tone: ActivityItem["tone"]) {
   switch (tone) {
     case "success":
@@ -375,6 +403,45 @@ function TeacherAccessMessage({
       </Card>
     </main>
   );
+}
+
+function formatQueueItemType(itemType: "criterion" | "deliverable") {
+  return itemType === "criterion" ? "Criterion document" : "Deliverable";
+}
+
+function getQueueActionLabel(item: {
+  itemType: "criterion" | "deliverable";
+  status: SubmissionStatus;
+}) {
+  if (item.status === "revision_needed") {
+    return item.itemType === "criterion" ? "View revision" : "View deliverable";
+  }
+
+  if (item.status === "passed" || item.status === "final_submitted") {
+    return "View review";
+  }
+
+  return item.itemType === "criterion" ? "Review criterion" : "Review deliverable";
+}
+
+function getQueueAttentionNote(item: {
+  itemType: "criterion" | "deliverable";
+  aiReviewState: string;
+  status: SubmissionStatus;
+}) {
+  if (
+    item.itemType === "criterion" &&
+    (item.status === "submitted" || item.status === "under_review") &&
+    ["missing", "stale", "failed"].includes(item.aiReviewState)
+  ) {
+    return "AI support is not current for this version. Check the file and run or rerun AI review before using AI notes.";
+  }
+
+  if (item.itemType === "deliverable") {
+    return "Confirm the linked criterion scope before sending student-visible feedback.";
+  }
+
+  return null;
 }
 
 function getStatusTone(status: SubmissionStatus) {
