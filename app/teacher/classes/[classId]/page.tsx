@@ -76,6 +76,14 @@ export default async function TeacherClassPage({
             include: {
               criterion: true,
               latestVersion: true,
+              aiReviewRuns: {
+                orderBy: { createdAt: "desc" },
+                take: 1,
+                select: {
+                  status: true,
+                  submissionVersionId: true,
+                },
+              },
             },
           },
           deliverableSlots: {
@@ -180,7 +188,7 @@ export default async function TeacherClassPage({
                   );
                   const progressSlots =
                     sortedDeliverableSlots.length > 0
-                      ? sortedDeliverableSlots
+                      ? [...sortedSlots, ...sortedDeliverableSlots]
                       : sortedSlots;
                   const statusSummary = getStatusSummary(
                     progressSlots.map((slot) => slot.status),
@@ -192,6 +200,11 @@ export default async function TeacherClassPage({
                   const isFinalSubmitted =
                     sortedSlots.length > 0 &&
                     sortedSlots.every((slot) => slot.status === "final_submitted");
+                  const reviewFocus = getStudentReviewFocus({
+                    criterionSlots: sortedSlots,
+                    deliverableSlots: sortedDeliverableSlots,
+                  });
+                  const attentionNote = getStudentAttentionNote(reviewFocus);
 
                   return (
                     <Link
@@ -224,6 +237,35 @@ export default async function TeacherClassPage({
                           </div>
                         </div>
 
+                        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                          <ReviewFocusTile
+                            label="Criteria to review"
+                            value={reviewFocus.criteriaAwaiting}
+                            tone={reviewFocus.criteriaAwaiting > 0 ? "info" : "muted"}
+                          />
+                          <ReviewFocusTile
+                            label="Deliverables to review"
+                            value={reviewFocus.deliverablesAwaiting}
+                            tone={reviewFocus.deliverablesAwaiting > 0 ? "info" : "muted"}
+                          />
+                          <ReviewFocusTile
+                            label="Needs revision"
+                            value={reviewFocus.needsRevision}
+                            tone={reviewFocus.needsRevision > 0 ? "warning" : "muted"}
+                          />
+                          <ReviewFocusTile
+                            label="AI needs update"
+                            value={reviewFocus.needsAIReview}
+                            tone={reviewFocus.needsAIReview > 0 ? "warning" : "muted"}
+                          />
+                        </div>
+
+                        {attentionNote ? (
+                          <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                            {attentionNote}
+                          </p>
+                        ) : null}
+
                         <div className="flex h-3 overflow-hidden rounded-full bg-muted">
                           {statusSummary
                             .filter((item) => item.count > 0)
@@ -251,7 +293,14 @@ export default async function TeacherClassPage({
                           <div className="grid gap-2 sm:grid-cols-2">
                             {sortedDeliverableSlots.map((slot) => (
                               <div key={slot.id} className="rounded-md bg-background p-2 text-sm">
-                                <p className="truncate font-medium">{slot.deliverable.title}</p>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="truncate font-medium">{slot.deliverable.title}</p>
+                                  {isTeacherActionStatus(slot.status) ? (
+                                    <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-800">
+                                      Review
+                                    </span>
+                                  ) : null}
+                                </div>
                                 <p
                                   className={`mt-1 inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(slot.status)}`}
                                 >
@@ -270,14 +319,30 @@ export default async function TeacherClassPage({
 
                             return (
                               <div key={criterion.id} className="rounded-md bg-background p-2 text-sm">
-                                <p className="font-medium">Criterion {criterion.code}</p>
-                                <p
-                                  className={`mt-1 inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(slot?.status ?? "not_started")}`}
-                                >
-                                  {slot
-                                    ? formatSubmissionStatus(slot.status)
-                                    : "Not Started"}
-                                </p>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="font-medium">Criterion {criterion.code}</p>
+                                  {slot?.status && isTeacherActionStatus(slot.status) ? (
+                                    <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-800">
+                                      Review
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  <p
+                                    className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getStatusTone(slot?.status ?? "not_started")}`}
+                                  >
+                                    {slot
+                                      ? formatSubmissionStatus(slot.status)
+                                      : "Not Started"}
+                                  </p>
+                                  {slot ? (
+                                    <p
+                                      className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getAIReviewTone(getAIReviewState(slot.latestVersionId, slot.aiReviewRuns[0]))}`}
+                                    >
+                                      {formatAIReviewState(getAIReviewState(slot.latestVersionId, slot.aiReviewRuns[0]))}
+                                    </p>
+                                  ) : null}
+                                </div>
                               </div>
                             );
                           })}
@@ -562,6 +627,104 @@ function MetricPill({ label, value }: { label: string; value: number }) {
   );
 }
 
+function ReviewFocusTile({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "info" | "warning" | "muted";
+}) {
+  return (
+    <div className={`rounded-md border px-3 py-2 ${getReviewFocusTone(tone)}`}>
+      <p className="text-lg font-semibold">{value}</p>
+      <p className="text-xs">{label}</p>
+    </div>
+  );
+}
+
+function getStudentReviewFocus({
+  criterionSlots,
+  deliverableSlots,
+}: {
+  criterionSlots: Array<{
+    status: SubmissionStatus;
+    latestVersionId: string | null;
+    aiReviewRuns: Array<{
+      status: string;
+      submissionVersionId: string | null;
+    }>;
+  }>;
+  deliverableSlots: Array<{ status: SubmissionStatus }>;
+}) {
+  const criteriaAwaiting = criterionSlots.filter((slot) =>
+    isTeacherActionStatus(slot.status),
+  ).length;
+  const deliverablesAwaiting = deliverableSlots.filter((slot) =>
+    isTeacherActionStatus(slot.status),
+  ).length;
+  const needsRevision = [...criterionSlots, ...deliverableSlots].filter(
+    (slot) => slot.status === "revision_needed",
+  ).length;
+  const needsAIReview = criterionSlots.filter((slot) => {
+    if (!isTeacherActionStatus(slot.status)) {
+      return false;
+    }
+
+    return ["missing", "stale", "failed"].includes(
+      getAIReviewState(slot.latestVersionId, slot.aiReviewRuns[0]),
+    );
+  }).length;
+
+  return {
+    criteriaAwaiting,
+    deliverablesAwaiting,
+    needsRevision,
+    needsAIReview,
+  };
+}
+
+function getStudentAttentionNote(focus: ReturnType<typeof getStudentReviewFocus>) {
+  if (focus.criteriaAwaiting > 0 && focus.deliverablesAwaiting > 0) {
+    return "This student has both criterion documents and deliverables waiting for teacher review.";
+  }
+
+  if (focus.criteriaAwaiting > 0) {
+    return "Criterion documents are waiting for teacher review.";
+  }
+
+  if (focus.deliverablesAwaiting > 0) {
+    return "Deliverables are waiting for teacher review. Confirm the linked criterion scope before sending feedback.";
+  }
+
+  if (focus.needsRevision > 0) {
+    return "Student revision is needed; wait for a resubmission before reviewing again.";
+  }
+
+  if (focus.needsAIReview > 0) {
+    return "AI review needs an update before relying on AI notes.";
+  }
+
+  return null;
+}
+
+function isTeacherActionStatus(status: SubmissionStatus) {
+  return status === "submitted" || status === "under_review";
+}
+
+function getReviewFocusTone(tone: "info" | "warning" | "muted") {
+  switch (tone) {
+    case "info":
+      return "border-blue-200 bg-blue-50 text-blue-900";
+    case "warning":
+      return "border-amber-200 bg-amber-50 text-amber-900";
+    case "muted":
+    default:
+      return "bg-background text-muted-foreground";
+  }
+}
+
 function formatDateInput(date: Date | null) {
   if (!date) {
     return "";
@@ -572,6 +735,65 @@ function formatDateInput(date: Date | null) {
   const day = String(date.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
+}
+
+function getAIReviewState(
+  latestVersionId: string | null,
+  latestAIReviewRun:
+    | {
+        status: string;
+        submissionVersionId: string | null;
+      }
+    | undefined,
+) {
+  if (!latestVersionId || !latestAIReviewRun) {
+    return "missing";
+  }
+
+  if (latestAIReviewRun.submissionVersionId !== latestVersionId) {
+    return "stale";
+  }
+
+  if (latestAIReviewRun.status === "completed") {
+    return "current";
+  }
+
+  if (latestAIReviewRun.status === "failed") {
+    return "failed";
+  }
+
+  return "pending";
+}
+
+function formatAIReviewState(state: string) {
+  switch (state) {
+    case "current":
+      return "AI current";
+    case "stale":
+      return "AI stale";
+    case "failed":
+      return "AI failed";
+    case "pending":
+      return "AI pending";
+    case "missing":
+    default:
+      return "No AI";
+  }
+}
+
+function getAIReviewTone(state: string) {
+  switch (state) {
+    case "current":
+      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+    case "pending":
+      return "border-blue-200 bg-blue-50 text-blue-800";
+    case "stale":
+    case "failed":
+      return "border-amber-200 bg-amber-50 text-amber-800";
+    case "missing":
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-600";
+  }
 }
 
 function getStatusTone(status: SubmissionStatus) {

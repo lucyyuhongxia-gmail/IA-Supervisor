@@ -115,6 +115,8 @@ and backlog supplement.
   activity are secondary collapsed sections.
 - Teacher class dashboard prioritizes the student/submission list first; submission plan, milestones, and assessment
   reference are grouped under a secondary class setup section.
+- Teacher class student list shows review-focus metrics per student, including criteria awaiting review, deliverables
+  awaiting review, revision-needed count, AI review update count, status badges, and attention notes.
 - Teacher student detail page prioritizes active review focus first; consistency checks and full criterion details are
   secondary collapsed sections.
 - Student dashboard prioritizes current action items and class progress; join-class controls are primary only when a
