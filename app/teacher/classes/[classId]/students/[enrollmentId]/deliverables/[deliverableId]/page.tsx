@@ -213,7 +213,7 @@ export default async function TeacherDeliverableReviewPage({
             value={`${readableFileCount}/${files.length}`}
             detail={artifactUrl ? "plus evidence link" : "submitted files"}
           />
-          <SummaryTile label="Review mode" value={formatReviewMode(deliverable.reviewMode)} detail={linkedCriteriaLabel} />
+          <SummaryTile label="Teacher review" value={formatSubmissionStatus(slot.status)} detail={reviewedLabel} />
           <SummaryTile label="Next queue item" value={nextReviewItem ? "Available" : "None"} detail={nextReviewLabel} />
         </div>
       </section>
@@ -336,12 +336,18 @@ export default async function TeacherDeliverableReviewPage({
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Step 2
               </p>
-              <CardTitle className="mt-1 text-lg">Check review scope</CardTitle>
+              <CardTitle className="mt-1 text-lg">Confirm review scope</CardTitle>
               <CardDescription>
-                This deliverable may map to one criterion, multiple criteria, or a final package.
+                Confirm the linked criteria before writing student-visible feedback.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-2 p-4 pt-0">
+              <div className="rounded-md border bg-muted/20 px-3 py-2 text-sm">
+                <p className="font-medium">{formatReviewMode(deliverable.reviewMode)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Review this deliverable against {linkedCriteriaLabel === "General" ? "the class submission plan" : `Criterion ${linkedCriteriaLabel}`}.
+                </p>
+              </div>
               {deliverable.criteria.length > 0 ? (
                 deliverable.criteria.map((link) => (
                   <div key={link.id} className="rounded-md border bg-background px-3 py-2 text-sm">
@@ -462,10 +468,10 @@ export default async function TeacherDeliverableReviewPage({
               Step 3
             </p>
             <h2 className="mt-1 text-lg font-semibold tracking-normal">
-              Decide and send
+              Decide teacher feedback
             </h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Save a teacher-only draft or send feedback by changing the review status.
+              Edit the final message, choose the review status, and send feedback when it should be visible to the student.
             </p>
           </div>
 

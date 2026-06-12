@@ -101,6 +101,8 @@ and backlog supplement.
   panel for teacher feedback, status choice, and student-visible send decisions.
 - Teacher deliverable review page uses the same review workspace pattern: check deliverable evidence, confirm linked
   criterion scope, then decide/send feedback from a sticky decision panel.
+- Teacher deliverable review page mirrors the criterion review hierarchy by keeping evidence and scope checks in the
+  main workflow and reserving the sticky decision panel for teacher feedback/status decisions.
 - Teacher review navigation is consistent across student detail, criterion review, and deliverable review pages, with
   stable links for Back to student, Class dashboard, Review queue, and Next review item when available.
 - Teacher review queue is priority-sorted by review state before submission date, so newly submitted and under-review
