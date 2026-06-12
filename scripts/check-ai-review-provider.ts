@@ -117,7 +117,7 @@ Usage:
   npm run ai-review:check-provider
   npm run ai-review:check-provider -- --allow-fail
   npm run ai-review:check-provider -- --provider mock
-  npm run ai-review:check-provider -- --model deepseek-chat
+  npm run ai-review:check-provider -- --model deepseek-v4-flash
 
 The command loads .env, masks secrets in output, and performs one minimal
 OpenAI-compatible chat completions request when provider=deepseek.`);

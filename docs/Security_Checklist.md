@@ -94,6 +94,9 @@ The following actions are recorded in `AuditLog`:
 - `node_modules`, `.next`, logs, coverage, and build output are ignored by git.
 - `.env.example` contains placeholders only and no real API keys.
 - README documents DeepSeek configuration with placeholder values only.
+- `npm run readiness:check` validates required local environment values before handoff.
+- `npm run readiness:check -- --production` adds stricter checks for HTTPS auth URL, non-placeholder secrets, and real
+  AI provider configuration.
 - Repository scan on 2026-06-04 found no committed DeepSeek-style `sk-...` API keys. Matches were limited to expected
   local demo account credentials in README, seed, reset scripts, and login placeholder text.
 - `npm run demo:reset` refuses to run unless `DATABASE_URL` points to `localhost`, `127.0.0.1`, or `::1`.

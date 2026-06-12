@@ -329,7 +329,7 @@ function getConfiguredProvider() {
   return {
     provider,
     baseUrl: process.env.DEEPSEEK_BASE_URL?.trim() || "https://api.deepseek.com",
-    modelName: process.env.DEEPSEEK_MODEL?.trim() || "deepseek-chat",
+    modelName: process.env.DEEPSEEK_MODEL?.trim() || "deepseek-v4-flash",
     maskedApiKey: maskSecret(apiKey),
     hasApiKey: Boolean(apiKey),
   };

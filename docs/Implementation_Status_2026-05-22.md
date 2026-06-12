@@ -195,6 +195,17 @@ and backlog supplement.
   provider calls.
 - These are single-instance MVP controls; distributed rate limiting remains deferred for production scale.
 
+### Production Readiness
+
+- `npm run readiness:check` validates required environment variables, auth secrets, AI provider configuration, and local
+  upload directory access.
+- `npm run readiness:check -- --production` adds stricter checks for HTTPS `NEXTAUTH_URL`, non-mock AI provider
+  configuration, and production-oriented warnings.
+- DeepSeek defaults are aligned to `deepseek-v4-flash`, while `.env` remains the source of truth for deployed model
+  selection.
+- The readiness check documents but does not solve remaining production constraints: durable private file storage and
+  distributed rate limiting are still deferred.
+
 ### AI Review
 
 - AI review can run against a single criterion submission.

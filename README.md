@@ -124,7 +124,7 @@ For local workflow testing without an API key:
 AI_REVIEW_PROVIDER="mock"
 DEEPSEEK_API_KEY=""
 DEEPSEEK_BASE_URL="https://api.deepseek.com"
-DEEPSEEK_MODEL="deepseek-chat"
+DEEPSEEK_MODEL="deepseek-v4-flash"
 ```
 
 For real DeepSeek review:
@@ -133,10 +133,10 @@ For real DeepSeek review:
 AI_REVIEW_PROVIDER="deepseek"
 DEEPSEEK_API_KEY="your-deepseek-api-key"
 DEEPSEEK_BASE_URL="https://api.deepseek.com"
-DEEPSEEK_MODEL="deepseek-chat"
+DEEPSEEK_MODEL="deepseek-v4-flash"
 ```
 
-Use the model name supported by your DeepSeek account, for example `deepseek-chat` or another compatible model configured for your API key.
+Use the model name supported by your DeepSeek account. The project default is `deepseek-v4-flash`, but `.env` can override it.
 
 Check the provider before running real reviews:
 
@@ -147,6 +147,33 @@ npm run ai-review:check-provider
 This command loads `.env`, masks the API key in output, and performs one minimal chat-completions request. Use it before batch-running official example reviews.
 
 The official-example batch runner also performs this provider check automatically in write mode, before creating any `AIReviewRun` records.
+
+## Production Readiness Check
+
+Run the local readiness check before handoff:
+
+```bash
+npm run readiness:check
+```
+
+Run the stricter production check before deploying or demonstrating with real AI review:
+
+```bash
+npm run readiness:check -- --production
+```
+
+The production check validates:
+
+- required database and auth environment variables
+- non-placeholder `NEXTAUTH_SECRET` and `TEACHER_SIGNUP_CODE`
+- HTTPS `NEXTAUTH_URL`
+- DeepSeek provider configuration when real AI review is expected
+- readable/writable `uploads/` directory
+
+Known production constraints are still intentional for this MVP:
+
+- uploads use local disk storage and need durable private storage or a persistent volume in production
+- rate limiting is in-memory and should be backed by Redis or a database for multi-instance deployment
 
 ## Local QA Gate
 
@@ -294,6 +321,7 @@ The benchmark compares stored AI review output with the official examiner commen
 npm run dev
 npm run build
 npm run lint
+npm run readiness:check
 npm run ai-review:check-provider
 npm run ai-review:evaluate -- --slot-id <submissionSlotId>
 npm run ai-review:run-official -- --dry-run

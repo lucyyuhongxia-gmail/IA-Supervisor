@@ -1,5 +1,5 @@
 const defaultDeepSeekBaseUrl = "https://api.deepseek.com";
-const defaultDeepSeekModel = "deepseek-chat";
+const defaultDeepSeekModel = "deepseek-v4-flash";
 
 export type AIReviewProviderCheckConfig = {
   provider: string;

@@ -455,7 +455,7 @@ function getProviderLabel() {
     (process.env.DEEPSEEK_API_KEY ? "deepseek" : "mock");
   const model =
     provider === "deepseek"
-      ? process.env.DEEPSEEK_MODEL || "deepseek-chat"
+      ? process.env.DEEPSEEK_MODEL || "deepseek-v4-flash"
       : "mock-ai-review";
 
   return `${provider}:${model}`;
