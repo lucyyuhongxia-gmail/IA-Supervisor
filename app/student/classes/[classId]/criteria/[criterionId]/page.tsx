@@ -110,34 +110,69 @@ export default async function StudentCriterionSubmissionPage({
   const reviewedAt = latestVersion?.reviewedAt ?? slot.reviewedAt;
   const statusLabel = formatSubmissionStatus(slot.status);
   const needsRevision = slot.status === "revision_needed";
+  const nextAction = getStudentNextAction({
+    status: slot.status,
+    criterionCode: criterion.code,
+    hasTeacherFeedback: Boolean(teacherFeedback),
+    canEdit,
+  });
+  const latestVersionLabel = latestVersion
+    ? `v${latestVersion.versionNumber}`
+    : "No version yet";
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-6 py-10">
+    <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 px-6 py-10">
       <section>
         <Button asChild variant="ghost" size="sm" className="-ml-3 mb-3">
           <Link href={`/student/classes/${classRecord.id}`}>Back to criteria</Link>
         </Button>
-        <p className="text-sm font-medium text-muted-foreground">
-          {classRecord.name} · {classRecord.teacher.name}
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-normal">
-          Criterion {criterion.code}: {criterion.title}
-        </h1>
-        <div className="mt-4 flex flex-col gap-3 rounded-md border bg-muted/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs font-medium uppercase text-muted-foreground">
-              Current status
+            <p className="text-sm font-medium text-muted-foreground">
+              {classRecord.name} · {classRecord.teacher.name}
             </p>
-            <p className={`mt-1 inline-flex rounded-md border px-3 py-2 text-2xl font-semibold tracking-normal ${getStudentStatusTone(slot.status)}`}>
-              {statusLabel}
-            </p>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              {getStudentStatusMessage(slot.status)}
+            <h1 className="mt-2 text-3xl font-semibold tracking-normal">
+              Criterion {criterion.code}: {criterion.title}
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {criterion.maxMarks} marks · Latest version: {latestVersionLabel}
             </p>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Criterion {criterion.code} · {criterion.maxMarks} marks
+          <p className={`inline-flex w-fit rounded-md border px-3 py-2 text-lg font-semibold tracking-normal ${getStudentStatusTone(slot.status)}`}>
+            {statusLabel}
           </p>
+        </div>
+      </section>
+
+      <section className={`rounded-md border p-4 ${nextAction.tone}`}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-medium uppercase text-muted-foreground">
+              Next step
+            </p>
+            <h2 className="mt-1 text-xl font-semibold tracking-normal">
+              {nextAction.title}
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+              {nextAction.description}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 sm:justify-end">
+            {teacherFeedback ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/student/classes/${classRecord.id}/criteria/${criterion.id}/feedback`}>
+                  Print feedback
+                </Link>
+              </Button>
+            ) : null}
+            {canEdit ? (
+              <Button asChild size="sm">
+                <a href="#submission-form">
+                  {needsRevision ? "Submit revision" : "Upload PDF"}
+                </a>
+              </Button>
+            ) : null}
+          </div>
         </div>
       </section>
 
@@ -188,7 +223,33 @@ export default async function StudentCriterionSubmissionPage({
         </Card>
       ) : null}
 
-      <Card>
+      {latestFiles.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">
+              Current files{latestVersion ? ` · v${latestVersion.versionNumber}` : ""}
+            </CardTitle>
+            <CardDescription>
+              These are the files currently attached to this criterion.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2">
+              {latestFiles.map((fileAsset) => (
+                <a
+                  key={fileAsset.id}
+                  href={`/api/files/${fileAsset.id}`}
+                  className="text-sm text-primary underline-offset-4 hover:underline"
+                >
+                  {fileAsset.originalName} · {formatFileSize(fileAsset.sizeBytes)}
+                </a>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Card id="submission-form">
         <CardHeader>
           <CardTitle className="text-lg">
             {needsRevision
@@ -216,32 +277,10 @@ export default async function StudentCriterionSubmissionPage({
             maxUploadSizeLabel={formatFileSize(maxUploadSizeBytes)}
             isRevisionNeeded={needsRevision}
             latestVersionNumber={latestVersion?.versionNumber}
+            lockedMessage={getLockedSubmissionMessage(slot.status)}
           />
         </CardContent>
       </Card>
-
-      {latestFiles.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              Latest files{latestVersion ? ` · v${latestVersion.versionNumber}` : ""}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-2">
-              {latestFiles.map((fileAsset) => (
-                <a
-                  key={fileAsset.id}
-                  href={`/api/files/${fileAsset.id}`}
-                  className="text-sm text-primary underline-offset-4 hover:underline"
-                >
-                  {fileAsset.originalName} · {formatFileSize(fileAsset.sizeBytes)}
-                </a>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
 
       {slot.versions.length > 0 ? (
         <details className="rounded-md border bg-card">
@@ -344,21 +383,74 @@ function getStudentStatusTone(status: string) {
   }
 }
 
-function getStudentStatusMessage(status: string) {
+function getStudentNextAction({
+  status,
+  criterionCode,
+  hasTeacherFeedback,
+  canEdit,
+}: {
+  status: string;
+  criterionCode: string;
+  hasTeacherFeedback: boolean;
+  canEdit: boolean;
+}) {
   switch (status) {
+    case "revision_needed":
+      return {
+        title: hasTeacherFeedback
+          ? "Revise from teacher feedback"
+          : "Wait for teacher feedback before revising",
+        description: hasTeacherFeedback
+          ? "Read the feedback first, update your PDF, then submit a new version with a short note explaining what changed."
+          : "Your teacher marked this criterion as needing revision, but no student-visible feedback has been sent yet.",
+        tone: "border-amber-200 bg-amber-50",
+      };
     case "passed":
     case "final_submitted":
-      return "This criterion has been accepted by your teacher. Keep the final files available for the complete IA submission.";
-    case "revision_needed":
-      return "Your teacher has requested changes. Upload a revised file and explain what changed.";
+      return {
+        title: `Criterion ${criterionCode} is accepted`,
+        description:
+          "No action is needed for this criterion now. Keep the accepted file available for the complete IA submission.",
+        tone: "border-emerald-200 bg-emerald-50",
+      };
     case "submitted":
-      return "Your file is submitted and waiting for teacher review.";
+      return {
+        title: "Waiting for teacher review",
+        description: canEdit
+          ? "Your PDF is submitted. You can replace it before review if you uploaded the wrong file."
+          : "Your PDF is submitted and waiting for teacher review.",
+        tone: "border-blue-200 bg-blue-50",
+      };
     case "under_review":
-      return "Your teacher is reviewing this criterion. Editing is locked until feedback is returned.";
+      return {
+        title: "Teacher review in progress",
+        description:
+          "Editing is locked while your teacher reviews this criterion. Feedback will appear here when it is sent.",
+        tone: "border-blue-200 bg-blue-50",
+      };
     case "not_started":
     case "draft":
     default:
-      return "Upload a PDF when this criterion is ready for teacher review.";
+      return {
+        title: `Upload Criterion ${criterionCode} PDF`,
+        description:
+          "Submit a text-based PDF when this criterion is ready for teacher review. Add a short note if there is anything specific your teacher should check.",
+        tone: "border-slate-200 bg-card",
+      };
+  }
+}
+
+function getLockedSubmissionMessage(status: string) {
+  switch (status) {
+    case "passed":
+    case "final_submitted":
+      return "This criterion has been accepted.";
+    case "under_review":
+      return "Teacher review is in progress.";
+    case "locked":
+      return "This criterion is locked.";
+    default:
+      return "Submission is not available right now.";
   }
 }
 

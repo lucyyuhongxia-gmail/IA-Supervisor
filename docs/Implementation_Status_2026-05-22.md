@@ -88,6 +88,8 @@ and backlog supplement.
 - Final submission updates passed criteria to `final_submitted` and locks further student editing.
 - Student-facing completion status does not expose teacher final marks, AI internal review details, marking assistant
   output, or audit logs.
+- Student criterion pages now prioritize a clear next-step panel, current files, student-visible teacher feedback, and
+  revised submission actions before lower-priority version history.
 
 ### Teacher Review Workflow
 

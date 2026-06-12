@@ -19,6 +19,7 @@ type SubmissionFormProps = {
   maxUploadSizeLabel: string;
   isRevisionNeeded: boolean;
   latestVersionNumber?: number | null;
+  lockedMessage: string;
 };
 
 export function SubmissionForm({
@@ -31,6 +32,7 @@ export function SubmissionForm({
   maxUploadSizeLabel,
   isRevisionNeeded,
   latestVersionNumber,
+  lockedMessage,
 }: SubmissionFormProps) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -134,7 +136,7 @@ export function SubmissionForm({
           </Button>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Teacher review is in progress.
+            {lockedMessage}
           </p>
         )}
       </div>
