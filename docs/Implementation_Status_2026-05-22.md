@@ -203,6 +203,11 @@ and backlog supplement.
   configuration, and production-oriented warnings.
 - DeepSeek defaults are aligned to `deepseek-v4-flash`, while `.env` remains the source of truth for deployed model
   selection.
+- Production reference seeding can skip local demo users with `SEED_DEMO_USERS=false npx prisma db seed`.
+- `npm run admin:create` bootstraps or rotates an admin account from `ADMIN_EMAIL`, `ADMIN_NAME`, and
+  `ADMIN_PASSWORD`.
+- `docs/Deployment_Runbook.md` documents the first-deployment sequence, verification gate, rollback plan, and
+  commands that must stay local-only.
 - The readiness check documents but does not solve remaining production constraints: durable private file storage and
   distributed rate limiting are still deferred.
 

@@ -65,6 +65,12 @@ AI review is advisory only. Teacher judgement remains final.
    npx prisma db seed
    ```
 
+   For a non-demo deployment, seed reference data without demo users:
+
+   ```bash
+   SEED_DEMO_USERS=false npx prisma db seed
+   ```
+
 6. Optional: reset the local demo database:
 
    ```bash
@@ -149,6 +155,12 @@ This command loads `.env`, masks the API key in output, and performs one minimal
 The official-example batch runner also performs this provider check automatically in write mode, before creating any `AIReviewRun` records.
 
 ## Production Readiness Check
+
+Use the deployment runbook for a complete handoff sequence:
+
+```text
+docs/Deployment_Runbook.md
+```
 
 Run the local readiness check before handoff:
 
@@ -321,6 +333,7 @@ The benchmark compares stored AI review output with the official examiner commen
 npm run dev
 npm run build
 npm run lint
+npm run admin:create
 npm run readiness:check
 npm run ai-review:check-provider
 npm run ai-review:evaluate -- --slot-id <submissionSlotId>
@@ -331,6 +344,7 @@ npm run demo:official-examples
 npm run qa:local
 npm run smoke:local
 npx prisma migrate dev
+npm run prisma:deploy
 npx prisma db seed
 npx prisma studio
 ```
@@ -378,6 +392,7 @@ uploads/
 ## Documentation
 
 - Current implementation and backlog: `docs/Implementation_Status_2026-05-22.md`
+- Deployment runbook: `docs/Deployment_Runbook.md`
 - MVP1.0 release notes: `docs/releases/MVP1.0.md`
 - Security checklist: `docs/Security_Checklist.md`
 - Official example AI review benchmark: `docs/AI_Review_Official_Example_Benchmark.md`

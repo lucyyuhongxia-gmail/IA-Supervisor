@@ -77,6 +77,9 @@ const users = [
   },
 ];
 
+const shouldSeedDemoUsers =
+  process.env.SEED_DEMO_USERS?.trim().toLowerCase() !== "false";
+
 const milestoneTitleUpdates = [
   ["Criterion A: Planning", "Criterion A: Problem specification"],
   ["Criterion B: Solution overview", "Criterion B: Planning"],
@@ -378,19 +381,23 @@ async function main() {
     }
   }
 
-  for (const user of users) {
-    await prisma.user.upsert({
-      where: { email: user.email },
-      update: {
-        name: user.name,
-        role: user.role,
-        passwordHash,
-      },
-      create: {
-        ...user,
-        passwordHash,
-      },
-    });
+  if (shouldSeedDemoUsers) {
+    for (const user of users) {
+      await prisma.user.upsert({
+        where: { email: user.email },
+        update: {
+          name: user.name,
+          role: user.role,
+          passwordHash,
+        },
+        create: {
+          ...user,
+          passwordHash,
+        },
+      });
+    }
+  } else {
+    console.log("Skipped demo users because SEED_DEMO_USERS=false.");
   }
 
   const enrollments = await prisma.enrollment.findMany({
@@ -488,7 +495,11 @@ async function main() {
     });
   }
 
-  console.log("Seeded IB CS criteria and demo users.");
+  console.log(
+    shouldSeedDemoUsers
+      ? "Seeded IB CS criteria and demo users."
+      : "Seeded IB CS criteria without demo users.",
+  );
 }
 
 main()

@@ -97,6 +97,8 @@ The following actions are recorded in `AuditLog`:
 - `npm run readiness:check` validates required local environment values before handoff.
 - `npm run readiness:check -- --production` adds stricter checks for HTTPS auth URL, non-placeholder secrets, and real
   AI provider configuration.
+- Production reference seeding can skip demo users with `SEED_DEMO_USERS=false npx prisma db seed`.
+- `npm run admin:create` bootstraps a real admin account from environment variables without committing credentials.
 - Repository scan on 2026-06-04 found no committed DeepSeek-style `sk-...` API keys. Matches were limited to expected
   local demo account credentials in README, seed, reset scripts, and login placeholder text.
 - `npm run demo:reset` refuses to run unless `DATABASE_URL` points to `localhost`, `127.0.0.1`, or `::1`.
