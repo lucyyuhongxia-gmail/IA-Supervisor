@@ -1,7 +1,7 @@
 # IA Supervisor Deployment Runbook
 
 This runbook prepares the current MVP for a private pilot deployment. It assumes one application instance, PostgreSQL,
-and persistent private storage for `uploads/`.
+and private file storage through Supabase Storage or a persistent local volume.
 
 ## Deployment Profile
 
@@ -10,7 +10,7 @@ and persistent private storage for `uploads/`.
 - App framework: Next.js App Router.
 - Auth: NextAuth Credentials.
 - AI provider: DeepSeek/OpenAI-compatible chat completions.
-- Upload storage: local `uploads/` path in the app, backed by a persistent volume for deployment.
+- Upload storage: Supabase Storage for online deployment, or local `uploads/` backed by a persistent volume.
 
 ## Required Environment Variables
 
@@ -24,6 +24,11 @@ AI_REVIEW_PROVIDER="deepseek"
 DEEPSEEK_API_KEY="your-deepseek-api-key"
 DEEPSEEK_BASE_URL="https://api.deepseek.com"
 DEEPSEEK_MODEL="deepseek-v4-flash"
+
+FILE_STORAGE_PROVIDER="supabase"
+SUPABASE_URL="https://your-project.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY="your-supabase-service-role-key"
+SUPABASE_STORAGE_BUCKET="ia-supervisor-uploads"
 ```
 
 For one-time admin bootstrap:
@@ -50,13 +55,18 @@ Remove `ADMIN_PASSWORD` from hosted environment settings after the admin account
    npx prisma generate
    ```
 
-3. Apply database migrations:
+3. Create a private Supabase Storage bucket named by `SUPABASE_STORAGE_BUCKET`.
+
+   The bucket should not be public. IA Supervisor serves files through authenticated app routes after checking the
+   current user role and class membership.
+
+4. Apply database migrations:
 
    ```bash
    npm run prisma:deploy
    ```
 
-4. Seed assessment reference data without demo accounts:
+5. Seed assessment reference data without demo accounts:
 
    ```bash
    SEED_DEMO_USERS=false npx prisma db seed
@@ -66,7 +76,7 @@ Remove `ADMIN_PASSWORD` from hosted environment settings after the admin account
    assessment reference file mappings. It intentionally skips `teacher@example.com`, `student@example.com`, and
    `admin@example.com`.
 
-5. Create the real admin account:
+6. Create the real admin account:
 
    ```bash
    ADMIN_EMAIL="admin@your-school.example" \
@@ -75,35 +85,86 @@ Remove `ADMIN_PASSWORD` from hosted environment settings after the admin account
    npm run admin:create
    ```
 
-6. Confirm production readiness:
+7. Confirm production readiness:
 
    ```bash
    npm run readiness:check -- --production
    ```
 
-7. Confirm DeepSeek connectivity:
+8. Confirm DeepSeek connectivity:
 
    ```bash
    npm run ai-review:check-provider
    ```
 
-8. Build the app:
+9. Build the app:
 
    ```bash
    npm run build
    ```
 
-9. Start the app:
+10. Start the app:
 
    ```bash
    npm run start
    ```
 
-10. Sign in as admin and check:
+11. Sign in as admin and check:
 
    - `/admin/system`
    - `/admin/subjects`
    - `/admin/assessment`
+
+## Vercel + Supabase Pilot
+
+Use this path for a low-cost online pilot.
+
+1. Create a Supabase project.
+2. Copy the Supabase Postgres connection string into `DATABASE_URL`.
+   - For serverless hosting, prefer the pooled connection string if available.
+   - Run migrations from a trusted local machine or CI job before opening the app to users.
+3. Create a private Supabase Storage bucket:
+
+   ```text
+   ia-supervisor-uploads
+   ```
+
+4. Import the GitHub repository into Vercel.
+5. Set Vercel environment variables:
+
+   ```env
+   DATABASE_URL="postgresql://..."
+   NEXTAUTH_URL="https://your-vercel-domain.vercel.app"
+   NEXTAUTH_SECRET="generate-a-long-random-secret"
+   TEACHER_SIGNUP_CODE="generate-a-private-teacher-signup-code"
+
+   FILE_STORAGE_PROVIDER="supabase"
+   SUPABASE_URL="https://your-project.supabase.co"
+   SUPABASE_SERVICE_ROLE_KEY="your-supabase-service-role-key"
+   SUPABASE_STORAGE_BUCKET="ia-supervisor-uploads"
+
+   AI_REVIEW_PROVIDER="deepseek"
+   DEEPSEEK_API_KEY="your-deepseek-api-key"
+   DEEPSEEK_BASE_URL="https://api.deepseek.com"
+   DEEPSEEK_MODEL="deepseek-v4-flash"
+   ```
+
+6. Deploy from Vercel.
+7. From local terminal, pointed at the same production database, run:
+
+   ```bash
+   npm run prisma:deploy
+   SEED_DEMO_USERS=false npx prisma db seed
+   ADMIN_EMAIL="admin@your-school.example" ADMIN_NAME="System Admin" ADMIN_PASSWORD="temporary-strong-password" \
+   npm run admin:create
+   npm run readiness:check -- --production
+   npm run ai-review:check-provider
+   ```
+
+8. Sign in with the real admin account and verify `/admin/system`.
+
+Do not expose the Supabase service role key to browser code or public logs. IA Supervisor uses it only in server-side
+file storage code.
 
 ## Local Pilot Deployment
 
@@ -123,14 +184,22 @@ The default local seed creates demo accounts. Do not expose those accounts on a 
 
 ## Persistent Files
 
-Uploaded files are stored in `uploads/` and are served only through authenticated file routes. For deployment:
+Uploaded files are served only through authenticated file routes.
 
+Recommended online deployment:
+
+- set `FILE_STORAGE_PROVIDER=supabase`
+- create a private Supabase Storage bucket
+- set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_STORAGE_BUCKET`
+- keep the service role key server-side only
+
+Local or single-server deployment:
+
+- set `FILE_STORAGE_PROVIDER=local`
 - mount `uploads/` as a persistent private volume
 - include it in backup policy
 - do not serve it as a public static directory
 - restore it together with the PostgreSQL database when recovering from backup
-
-Object storage is the preferred future production path, but it is not implemented in the current MVP.
 
 ## Pre-Release Verification
 
@@ -189,8 +258,9 @@ Database rollback:
 
 File rollback:
 
-- Restore the `uploads/` volume from the backup taken at the same time as the database backup.
-- Keep database and uploads snapshots paired, because file records reference upload paths.
+- For Supabase Storage, restore the affected bucket objects from the same backup window as the database.
+- For local storage, restore the `uploads/` volume from the backup taken at the same time as the database backup.
+- Keep database and file snapshots paired, because file records reference storage paths.
 
 ## Commands That Must Stay Local Only
 
@@ -207,7 +277,7 @@ benchmarking only.
 
 ## Known Production Gaps
 
-- File storage is local-volume based, not object storage.
+- Supabase Storage is supported, but direct bucket backup/restore automation is not included.
 - Rate limiting is in-memory and not distributed.
 - No email verification or password reset workflow.
 - No school/organization tenant model.

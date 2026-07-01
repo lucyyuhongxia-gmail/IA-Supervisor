@@ -97,6 +97,8 @@ The following actions are recorded in `AuditLog`:
 - `npm run readiness:check` validates required local environment values before handoff.
 - `npm run readiness:check -- --production` adds stricter checks for HTTPS auth URL, non-placeholder secrets, and real
   AI provider configuration.
+- Private Supabase Storage is supported through server-side `SUPABASE_SERVICE_ROLE_KEY`; the key must not be exposed to
+  browser/client code.
 - Production reference seeding can skip demo users with `SEED_DEMO_USERS=false npx prisma db seed`.
 - `npm run admin:create` bootstraps a real admin account from environment variables without committing credentials.
 - Repository scan on 2026-06-04 found no committed DeepSeek-style `sk-...` API keys. Matches were limited to expected
@@ -117,7 +119,7 @@ The following actions are recorded in `AuditLog`:
 - No distributed rate limiting yet, and export routes do not have a dedicated rate limit.
 - No email verification or password reset workflow yet.
 - No account lockout or suspicious login detection.
-- Uploaded files are stored on local disk, not object storage with malware scanning.
+- Uploaded files can use local disk or private Supabase Storage, but malware scanning is not implemented.
 - No CSRF-specific custom protection beyond Next.js Server Action mechanics and same-site session behavior.
 - No persistent `FinalPackage` model yet; exports are generated on demand and logged through audit records.
 - No organization/school-level tenancy model yet.

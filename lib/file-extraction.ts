@@ -1,7 +1,8 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { FileAsset } from "@prisma/client";
+
+import { readStoredFile } from "@/lib/files";
 
 export type FileExtractionResult = {
   text: string;
@@ -51,7 +52,7 @@ async function readSupportedFileText(
     }
 
     if (isTextLike) {
-      const content = await readFile(file.storagePath, "utf8");
+      const content = (await readStoredFile(file.storagePath)).toString("utf8");
 
       return truncate(cleanExtractedText(content), maxExtractedTextCharacters);
     }
@@ -80,7 +81,7 @@ async function extractPdfText(storagePath: string) {
     ).href,
   );
 
-  const buffer = await readFile(storagePath);
+  const buffer = await readStoredFile(storagePath);
   const parser = new PDFParse({ data: new Uint8Array(buffer) });
 
   try {
@@ -94,7 +95,9 @@ async function extractPdfText(storagePath: string) {
 
 async function extractDocxText(storagePath: string) {
   const mammoth = await import("mammoth");
-  const result = await mammoth.extractRawText({ path: storagePath });
+  const result = await mammoth.extractRawText({
+    buffer: await readStoredFile(storagePath),
+  });
 
   return formatExtractedText(result.value, "DOCX");
 }

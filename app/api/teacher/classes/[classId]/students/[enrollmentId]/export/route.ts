@@ -1,12 +1,11 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
 import type { UserRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 import { createAuditLog } from "@/lib/audit-log";
 import { getCurrentUser } from "@/lib/current-user";
 import { getDeliverableEvidenceState } from "@/lib/final-readiness";
-import { formatFileSize, sanitizeFileName } from "@/lib/files";
+import { formatFileSize, readStoredFile, sanitizeFileName } from "@/lib/files";
 import { prisma } from "@/lib/prisma";
 import { createZip } from "@/lib/zip";
 
@@ -195,7 +194,7 @@ export async function GET(
         })),
       ),
     ].map(async ({ fileAsset, fileIndex, pathPrefix }) => {
-        const data = await readFile(fileAsset.storagePath);
+        const data = await readStoredFile(fileAsset.storagePath);
 
         return {
           path: `${pathPrefix}/${fileIndex + 1}-${sanitizeFileName(fileAsset.originalName)}`,

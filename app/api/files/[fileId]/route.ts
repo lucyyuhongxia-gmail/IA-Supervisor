@@ -1,8 +1,7 @@
-import { readFile } from "node:fs/promises";
-
 import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/current-user";
+import { readStoredFile } from "@/lib/files";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -95,7 +94,7 @@ export async function GET(
     return new NextResponse("Forbidden", { status: 403 });
   }
 
-  const fileBuffer = await readFile(fileAsset.storagePath);
+  const fileBuffer = await readStoredFile(fileAsset.storagePath);
   const shouldPreviewInline =
     requestUrl.searchParams.get("disposition") === "inline" &&
     fileAsset.mimeType === "application/pdf";

@@ -197,19 +197,20 @@ and backlog supplement.
 
 ### Production Readiness
 
-- `npm run readiness:check` validates required environment variables, auth secrets, AI provider configuration, and local
-  upload directory access.
+- `npm run readiness:check` validates required environment variables, auth secrets, AI provider configuration, and file
+  storage configuration.
 - `npm run readiness:check -- --production` adds stricter checks for HTTPS `NEXTAUTH_URL`, non-mock AI provider
   configuration, and production-oriented warnings.
 - DeepSeek defaults are aligned to `deepseek-v4-flash`, while `.env` remains the source of truth for deployed model
   selection.
+- File storage supports local disk for development and private Supabase Storage for Vercel/online deployments.
 - Production reference seeding can skip local demo users with `SEED_DEMO_USERS=false npx prisma db seed`.
 - `npm run admin:create` bootstraps or rotates an admin account from `ADMIN_EMAIL`, `ADMIN_NAME`, and
   `ADMIN_PASSWORD`.
 - `docs/Deployment_Runbook.md` documents the first-deployment sequence, verification gate, rollback plan, and
   commands that must stay local-only.
-- The readiness check documents but does not solve remaining production constraints: durable private file storage and
-  distributed rate limiting are still deferred.
+- The readiness check documents but does not solve remaining production constraints: distributed rate limiting remains
+  deferred.
 
 ### AI Review
 
@@ -365,7 +366,7 @@ and backlog supplement.
 
 ### File Access
 
-- Uploaded files are stored locally under `/uploads`.
+- Uploaded files use local storage by default and can use private Supabase Storage when `FILE_STORAGE_PROVIDER=supabase`.
 - Files are served through authenticated `/api/files/[fileId]`.
 - PDF files can be previewed inline from teacher criterion review pages through the same authenticated file route.
 - Students can access their own files.

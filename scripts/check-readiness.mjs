@@ -32,13 +32,9 @@ checkSecret("TEACHER_SIGNUP_CODE", process.env.TEACHER_SIGNUP_CODE, {
   minLength: 8,
 });
 checkAIProvider();
-checkUploadsDirectory();
+checkFileStorage();
 
 if (productionMode) {
-  warn(
-    "FILE_STORAGE",
-    "Uploaded files still use local disk storage. Production should run on durable private storage or a persistent volume with backups.",
-  );
   warn(
     "RATE_LIMITING",
     "Rate limits are in-memory only. Multi-instance deployments need Redis or database-backed limits.",
@@ -94,7 +90,39 @@ function checkAIProvider() {
   }
 }
 
-function checkUploadsDirectory() {
+function checkFileStorage() {
+  const provider = process.env.FILE_STORAGE_PROVIDER?.trim().toLowerCase() || "local";
+
+  if (!["local", "supabase"].includes(provider)) {
+    fail(
+      "FILE_STORAGE_PROVIDER",
+      `Unsupported provider "${provider}". Use "local" or "supabase".`,
+    );
+    return;
+  }
+
+  pass("FILE_STORAGE_PROVIDER", `${provider} provider configured.`);
+
+  if (provider === "supabase") {
+    checkUrl("SUPABASE_URL", process.env.SUPABASE_URL, {
+      requireHttps: true,
+    });
+    checkSecret("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY, {
+      minLength: 24,
+    });
+
+    const bucket = process.env.SUPABASE_STORAGE_BUCKET?.trim();
+    if (!bucket) {
+      fail("SUPABASE_STORAGE_BUCKET", "Supabase Storage bucket name is required.");
+    } else if (isPlaceholder(bucket)) {
+      fail("SUPABASE_STORAGE_BUCKET", "Supabase Storage bucket still looks like a placeholder.");
+    } else {
+      pass("SUPABASE_STORAGE_BUCKET", `bucket configured: ${bucket}`);
+    }
+
+    return;
+  }
+
   const uploadsPath = path.join(process.cwd(), "uploads");
 
   if (!fs.existsSync(uploadsPath)) {
@@ -107,6 +135,13 @@ function checkUploadsDirectory() {
     pass("uploads/", "directory exists and is readable/writable.");
   } catch {
     fail("uploads/", "uploads directory is not readable/writable.");
+  }
+
+  if (productionMode) {
+    warn(
+      "FILE_STORAGE",
+      "Local disk storage is configured. Production should use Supabase Storage, object storage, or a persistent private volume with backups.",
+    );
   }
 }
 
